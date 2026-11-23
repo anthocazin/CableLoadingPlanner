@@ -605,7 +605,7 @@
       dashed(v, c.acrossMin, c.acrossMax, c.stackMax, '#c0392b', `max stack ${fmt(c.stackMax, 2)} m`);
       if (cr.fill.turns.length) dashed(v, c.acrossMin, c.acrossMax, cr.fill.top, '#0f2742', `top of cable ${fmt(cr.fill.top, 2)} m`);
       drawTurns(v, cr, t => [t.across, t.stack]);
-      if (ui.labels) { ctx.fillStyle = '#173a5e'; ctx.font = '600 12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(`${c.label} · ${fmt(cr.usedPct * 100, 0)} % height`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(world.y1) + 2); }
+      if (ui.labels) { ctx.fillStyle = '#173a5e'; ctx.font = '600 12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; const wpx = (c.acrossMax - c.acrossMin) * v.s; ctx.fillText(wpx < 190 ? `C${c.index + 1} · ${fmt(cr.usedPct * 100, 0)} %` : `${c.label} · ${fmt(cr.usedPct * 100, 0)} % height`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(world.y1) + 2); }
     });
     sectionEndMarkers(v, crs, t => [t.across, t.stack]);
     hit.view = v; hit.mode = 'circles';
@@ -905,6 +905,19 @@
       <table>${rows.map(r => `<tr><td class="muted">${esc(r[0])}</td><td><b>${esc(r[1])}</b></td></tr>`).join('')}</table></div>`;
   }
 
+  function ask(msg, onYes) {
+    const box = document.createElement('div');
+    box.className = 'modal';
+    box.innerHTML = `<div class="modal-card"><p>${esc(msg)}</p><div class="modal-btns"><button class="btn" data-no>Cancel</button><button class="btn primary" data-yes>${onYes ? 'Continue' : 'OK'}</button></div></div>`;
+    document.body.appendChild(box);
+    box.querySelector('[data-no]').style.display = onYes ? '' : 'none';
+    box.addEventListener('click', e => {
+      if (e.target.closest('[data-yes]')) { box.remove(); if (onYes) onYes(); }
+      else if (e.target.closest('[data-no]') || e.target === box) box.remove();
+    });
+    box.querySelector('[data-yes]').focus();
+  }
+
   /* ================================================================== */
   /* Top bar actions                                                     */
   /* ================================================================== */
@@ -913,16 +926,18 @@
     const k = e.target.value;
     e.target.value = '';
     if (!k) return;
-    if (!confirm('Replace the current project with this example?')) return;
-    state = normalise(EXAMPLES[k]());
-    ui.zoom = 'all'; ui.view = 'section';
-    update(); renderTab();
+    ask('Replace the current project with this example?', () => {
+      state = normalise(EXAMPLES[k]());
+      ui.zoom = 'all'; ui.view = 'section';
+      update(); renderTab();
+    });
   });
   $('btnNew').addEventListener('click', () => {
-    if (!confirm('Start a new empty project? Unsaved changes will be lost.')) return;
-    state = normalise(emptyProject());
-    ui.zoom = 'all'; ui.view = 'section'; ui.tab = 'carrier';
-    update(); renderTab();
+    ask('Start a new empty project? Unsaved changes will be lost.', () => {
+      state = normalise(emptyProject());
+      ui.zoom = 'all'; ui.view = 'section'; ui.tab = 'carrier';
+      update(); renderTab();
+    });
   });
   $('btnSave').addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(Object.assign({ app: 'CableLoadingPlanner', version: 1 }, state), null, 2)], { type: 'application/json' });
@@ -939,7 +954,7 @@
     const rd = new FileReader();
     rd.onload = () => {
       try { state = normalise(JSON.parse(rd.result)); ui.zoom = 'all'; update(); renderTab(); }
-      catch (err) { alert('This file could not be read as a cable loading plan.'); }
+      catch (err) { ask('This file could not be read as a cable loading plan.'); }
     };
     rd.readAsText(f);
     e.target.value = '';
