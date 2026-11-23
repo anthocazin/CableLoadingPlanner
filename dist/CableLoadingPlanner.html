@@ -224,142 +224,139 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
 .logo-item img { max-height: 44px; max-width: 140px; object-fit: contain; }
 .logo-ctrl { display: flex; gap: 2px; }
 
-/* ---------- Report tab (editor) ---------- */
+/* ================= Report tab: page layout editor ================= */
 .report-stage { display: none; }
 body.mode-report .results > :not(#reportStage) { display: none !important; }
-body.mode-report .report-stage { display: block; background: #e9eef5; border-radius: var(--radius); padding: 24px 0 40px; overflow-x: auto; }
-.report-stage .report { display: block; }
-.report-stage .rp { width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; padding: 14mm 12mm; box-shadow: 0 6px 24px rgba(11,58,117,.18); }
-.rp-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
-.rpl { display: grid; grid-template-columns: 18px 1fr auto auto auto auto; gap: 6px; align-items: center; padding: 5px 6px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 4px; background: #fff; font-size: 12.5px; }
-.rpl.off { opacity: .5; }
-.rpl input { width: auto; }
-.rpl select { width: auto; padding: 2px 4px; font-size: 12px; }
-.rpl-name i { color: var(--warn); font-style: normal; font-size: 11px; margin-left: 4px; }
-.editing .rb { outline: 1px dashed transparent; outline-offset: 2px; }
-.editing .rb:hover { outline-color: #9cc4f5; }
-.rb-tools { display: none; position: absolute; left: 5px; top: -25px; height: 24px; z-index: 5; align-items: center; gap: 2px; background: #0b3a75; color: #fff; border-radius: 5px 5px 0 0; padding: 0 4px; font: 600 11px system-ui, sans-serif; white-space: nowrap; }
-.editing .rb:hover > .rb-tools { display: flex; }
-.rb-tools button { background: none; border: none; color: #fff; font: inherit; padding: 2px 5px; border-radius: 3px; cursor: pointer; }
-.rb-tools button:hover, .rb-tools button.on { background: rgba(255,255,255,.2); }
-.rb-grip { cursor: grab; padding: 0 4px; font-size: 13px; }
-.rb-name { opacity: .75; margin-right: 6px; font-weight: 500; }
-.rb-resize { display: none; position: absolute; right: 0; bottom: 0; width: 12px; height: 12px; cursor: ew-resize; background: linear-gradient(135deg, transparent 50%, #1565c0 50%); border-radius: 0 0 3px 0; }
-.editing .rb:hover > .rb-resize { display: block; }
-.editing .rb-hidden { opacity: .35; background: repeating-linear-gradient(45deg, transparent, transparent 6px, #eef2f7 6px, #eef2f7 12px); }
-.editing .rb-frozen { outline: 1px solid #f0b44c; }
-.editing .rb-frozen::after { content: 'edited'; position: absolute; right: 6px; top: 2px; font: 600 9px system-ui, sans-serif; color: #9a6410; background: #fdf4e3; padding: 0 4px; border-radius: 3px; }
-.editing .rb-body[contenteditable="true"] { outline: 2px solid #9cc4f5; outline-offset: 1px; background: #fbfdff; cursor: text; }
-.editing .rb-title { outline: none; cursor: text; border-bottom: 1px dashed transparent; }
-.editing .rb-title:hover { border-bottom-color: #9cc4f5; }
-.rb-title:empty::before { content: attr(data-placeholder); color: #b7c4d4; }
-.editing .rb-body thead th[data-col] { cursor: pointer; }
-.editing .rb-body thead th[data-col]:hover { text-decoration: line-through; background: #b3261e; }
-.rb-showcols { font: 600 10px system-ui, sans-serif; color: #1565c0; background: #eaf2fd; border: 1px solid #c9daf2; border-radius: 4px; padding: 2px 6px; margin: 3px 0; cursor: pointer; }
-.rb-break-line { border-top: 2px dashed #8aa1ba; color: #5a7391; font: 600 10px system-ui, sans-serif; text-align: center; padding-top: 2px; margin: 8px 0; }
-.rb-drop-before { box-shadow: inset 0 3px 0 #1565c0; }
-.rb-drop-after { box-shadow: inset 0 -3px 0 #1565c0; }
-.rb-dragging { opacity: .4; }
+body.mode-report .report-stage { display: block; background: #dde4ed; border-radius: var(--radius); padding: 26px 20px 60px; overflow: auto; max-height: calc(100vh - 92px); }
+.rp-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.rels { display: flex; flex-direction: column; gap: 4px; }
+.rel { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; font-size: 12.5px; }
+.rel input { width: auto; }
+.rel.on { border-color: var(--accent); background: var(--blue-50); }
+.rel.off { opacity: .55; }
+.rel-n { cursor: pointer; }
+.rel-n:hover { color: var(--accent); }
+.rel-n i { color: var(--warn); font-style: normal; font-size: 11px; margin-left: 4px; }
+.rel-p { font-size: 11px; color: var(--muted); }
 
-/* ---------- A4 report (print only) ---------- */
+/* ================= Report document (screen editor + print) ================= */
 .report { display: none; }
+.rdoc { font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #1b2a3d; }
+.rpage, .rmeasure { font-size: 9pt; line-height: 1.4; }
+.rpage { position: relative; width: 210mm; height: 297mm; background: #fff; overflow: hidden; box-sizing: border-box; }
+.rdoc.editor .rpage { margin: 0 auto 26px; box-shadow: 0 4px 22px rgba(16,42,80,.2); overflow: visible; }
+.rdoc.editor .rpage[data-p="0"]::before { top: 14mm; }
+.rdoc.editor .rpage::before { content: ''; position: absolute; left: 14mm; right: 14mm; top: 26mm; bottom: 20mm; border: 1px dashed #e6ecf3; pointer-events: none; }
+.rmeasure { position: absolute; left: -10000px; top: 0; visibility: hidden; }
+.rframe { position: absolute; box-sizing: border-box; }
+.pg-hdr { position: absolute; left: 14mm; right: 14mm; top: 9mm; height: 10mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 4mm; border-bottom: .7pt solid #0b3a75; padding-bottom: 1.5mm; font-size: 7.5pt; color: #4a5d75; }
+.pg-hl { display: flex; align-items: center; gap: 3mm; }
+.pg-logos { display: inline-flex; gap: 2mm; align-items: center; }
+.pg-logos canvas { max-height: 6.5mm; max-width: 26mm; width: auto; height: auto; display: block; }
+.pg-ftr { position: absolute; left: 14mm; right: 14mm; bottom: 9mm; display: flex; justify-content: space-between; gap: 4mm; border-top: .5pt solid #c8d3e0; padding-top: 1.6mm; font-size: 7pt; color: #6b7d93; }
+.rf-h { display: flex; gap: 2mm; align-items: baseline; font-size: 1.22em; font-weight: 700; color: #0b3a75; padding-bottom: 1.2mm; margin-bottom: 2.2mm; border-bottom: .8pt solid #0b3a75; }
+.rf-n { color: #1565c0; }
+.rf-t:empty::before { content: attr(data-ph); color: #b6c3d3; }
+.rf-body p { margin: 0 0 1.5mm; }
+.rf-body p:last-child { margin-bottom: 0; }
+.mut { color: #6b7d93; }
+/* title block */
+.rt-title { display: grid; grid-template-columns: auto 1fr auto; border: 1pt solid #0b3a75; }
+.rt-logos { display: flex; align-items: center; gap: 3mm; padding: 3mm 4mm; border-right: .6pt solid #c8d3e0; flex-wrap: wrap; max-width: 70mm; }
+.rt-logos canvas { max-height: 14mm; max-width: 34mm; width: auto; height: auto; display: block; }
+.rt-app { font-weight: 800; color: #0b3a75; font-size: 1.05em; }
+.rt-main { padding: 3.5mm 5mm; display: flex; flex-direction: column; justify-content: center; }
+.rt-kicker { font-size: .76em; letter-spacing: .16em; text-transform: uppercase; color: #1565c0; font-weight: 700; }
+.rt-h1 { font-size: 1.85em; font-weight: 700; color: #0b3a75; line-height: 1.15; margin: 1mm 0 .8mm; }
+.rt-sub { color: #4a5d75; }
+.rt-doc { border-collapse: collapse; border-left: .6pt solid #c8d3e0; font-size: .88em; align-self: stretch; }
+.rt-doc th { text-align: left; font-weight: 400; color: #4a5d75; padding: 1.4mm 3mm; white-space: nowrap; border-bottom: .5pt solid #e3e9f1; }
+.rt-doc td { font-weight: 700; color: #0b3a75; padding: 1.4mm 3mm; white-space: nowrap; border-bottom: .5pt solid #e3e9f1; }
+.rt-doc tr:last-child th, .rt-doc tr:last-child td { border-bottom: none; }
+.st-ok { color: #1d7a45 !important; } .st-warn { color: #9a6410 !important; } .st-fail { color: #b3261e !important; }
+/* information */
+.rt-kv { width: 100%; border-collapse: collapse; font-size: .92em; }
+.rt-kv th { text-align: left; font-weight: 400; color: #4a5d75; background: #f4f7fb; width: 17%; padding: 1.4mm 2.5mm; border: .5pt solid #d5dee9; white-space: nowrap; vertical-align: top; }
+.rt-kv td { font-weight: 600; padding: 1.4mm 2.5mm; border: .5pt solid #d5dee9; vertical-align: top; }
+.rt-kf { width: 100%; border-collapse: collapse; table-layout: fixed; background: #f4f7fb; border: .5pt solid #d5dee9; }
+.rt-kf th { font-size: .72em; text-transform: uppercase; letter-spacing: .06em; color: #4a5d75; font-weight: 600; text-align: left; padding: 2mm 3mm 0; border-left: .5pt solid #d5dee9; vertical-align: top; }
+.rt-kf td { font-size: 1.45em; font-weight: 700; color: #0b3a75; padding: .6mm 3mm 2.2mm; border-left: .5pt solid #d5dee9; white-space: nowrap; }
+.rt-kf th:first-child, .rt-kf td:first-child { border-left: none; }
+/* tables */
+.rt-t { width: 100%; border-collapse: collapse; font-size: .86em; }
+.rt-t th { text-align: left; font-weight: 700; color: #0b3a75; font-size: .84em; text-transform: uppercase; letter-spacing: .04em; padding: 1.6mm 1.8mm; border-bottom: 1pt solid #0b3a75; background: #f4f7fb; vertical-align: bottom; }
+.rt-t td { padding: 1.5mm 1.8mm; border-bottom: .5pt solid #e1e8f0; vertical-align: top; }
+.rt-t .r { text-align: right; white-space: nowrap; }
+.rt-t tr.tot td { border-top: 1pt solid #0b3a75; background: #f4f7fb; font-weight: 600; }
+.rt-t .pos { font-size: .94em; color: #4a5d75; }
+.rt-t .pos b { color: #1b2a3d; }
+.rt-t .muted { color: #6b7d93; }
+.sw { display: inline-block; width: 2.3mm; height: 2.3mm; border-radius: .4mm; margin-right: 1.3mm; vertical-align: -.15mm; }
+.rt-t .ok { color: #1d7a45; font-weight: 700; } .rt-t .bad { color: #b3261e; font-weight: 700; }
+.rt-note { font-size: .8em; color: #6b7d93; margin: 1.6mm 0 0; }
+.rt-t .nw { white-space: nowrap; }
+.rt-bar { height: 2.4mm; background: #e6edf5; border-radius: .6mm; overflow: hidden; margin: .4mm 0 .8mm; min-width: 20mm; }
+.rt-bar i { display: block; height: 100%; background: #1565c0; }
+/* figures */
+.rt-fig { margin: 0; border: .6pt solid #d5dee9; padding: 1.6mm; }
+.rt-canvas canvas { width: 100%; height: auto; display: block; }
+.rt-fig figcaption { font-size: .82em; color: #4a5d75; margin-top: 1.3mm; }
+.rt-fig figcaption b { color: #0b3a75; }
+.rt-legend { display: flex; flex-wrap: wrap; gap: 1mm 4mm; font-size: .82em; margin-top: 1.2mm; color: #1b2a3d; }
+.rt-legend i { display: inline-block; width: 2.6mm; height: 2.6mm; border-radius: .4mm; margin-right: 1.2mm; vertical-align: -.3mm; }
+.rt-ul { margin: 0; padding-left: 4.5mm; }
+.rt-ul li { margin-bottom: .9mm; }
+.rt-concl { border: .6pt solid; border-left-width: 2.2mm; padding: 2.5mm 4mm; }
+.rt-concl.st-ok { border-color: #1d7a45; background: #f1f9f4; color: inherit !important; }
+.rt-concl.st-warn { border-color: #c98a06; background: #fdf7ea; color: inherit !important; }
+.rt-concl.st-fail { border-color: #b3261e; background: #fdf1f0; color: inherit !important; }
+.rt-concl-h { font-weight: 700; font-size: 1.15em; margin-bottom: 1mm; }
+.rt-concl.st-ok .rt-concl-h { color: #1d7a45; } .rt-concl.st-warn .rt-concl-h { color: #9a6410; } .rt-concl.st-fail .rt-concl-h { color: #b3261e; }
+.rt-concl ul { margin: 0; padding-left: 4.5mm; }
+.rt-rev { width: 100%; border-collapse: collapse; border: 1pt solid #0b3a75; font-size: .86em; }
+.rt-rev th { background: #f4f7fb; color: #0b3a75; text-align: left; padding: 1.5mm 2mm; border: .5pt solid #c8d3e0; font-size: .8em; text-transform: uppercase; letter-spacing: .05em; }
+.rt-rev td { padding: 2mm; border: .5pt solid #d5dee9; }
+.rt-rev tr.sig td { height: 11mm; color: #9aa9bb; font-size: .8em; vertical-align: top; }
+/* editor chrome */
+.rdoc.editor .rframe { cursor: move; }
+.rdoc.editor .rframe:hover { outline: 1px dashed #7fb0ec; outline-offset: 1mm; }
+.rdoc.editor .rframe.sel { outline: 1.5px solid #1565c0; outline-offset: 1mm; }
+.rdoc.editor .rframe.over { outline: 1.5px solid #d64545; outline-offset: 1mm; }
+.rdoc.editor .rframe.over::before { content: 'beyond the page margin'; position: absolute; right: 0; bottom: -5mm; font: 600 10px system-ui, sans-serif; color: #d64545; }
+.rdoc.editor .rframe.frozen::after { content: 'edited'; position: absolute; right: 0; top: -4.5mm; font: 600 9px system-ui, sans-serif; color: #9a6410; background: #fdf4e3; padding: 0 4px; border-radius: 3px; }
+.rdoc.editor .rframe.overlap:not(.sel) { outline: 1.5px dashed #e8822a; outline-offset: 1mm; }
+.rdoc.editor .rframe.overlap::before { content: 'overlaps another element'; position: absolute; left: 0; bottom: -5mm; font: 600 10px system-ui, sans-serif; color: #c96a17; white-space: nowrap; }
+.hd { display: none; position: absolute; width: 10px; height: 10px; background: #fff; border: 1.5px solid #1565c0; border-radius: 2px; z-index: 6; box-sizing: border-box; }
+.rframe.sel .hd { display: block; }
+.hd-w { left: -1mm; top: 50%; transform: translate(-50%, -50%); cursor: ew-resize; height: 22px; }
+.hd-e { right: -1mm; top: 50%; transform: translate(50%, -50%); cursor: ew-resize; height: 22px; }
+.hd-nw { left: -1mm; top: -1mm; transform: translate(-50%, -50%); cursor: nwse-resize; }
+.hd-ne { right: -1mm; top: -1mm; transform: translate(50%, -50%); cursor: nesw-resize; }
+.hd-sw { left: -1mm; bottom: -1mm; transform: translate(-50%, 50%); cursor: nesw-resize; }
+.hd-se { right: -1mm; bottom: -1mm; transform: translate(50%, 50%); cursor: nwse-resize; }
+.rframe.editing { cursor: text !important; outline: 2px solid #f0b44c !important; }
+.rframe.editing .hd { display: none; }
+.rframe.editing [contenteditable] { outline: none; cursor: text; }
+.rtool { position: absolute; z-index: 30; display: flex; align-items: center; gap: 1px; background: #0b3a75; color: #fff; border-radius: 6px; padding: 3px 5px; font: 600 11.5px system-ui, -apple-system, sans-serif; box-shadow: 0 4px 14px rgba(11,58,117,.3); white-space: nowrap; }
+.rtool b { font-weight: 600; opacity: .75; margin: 0 6px 0 3px; }
+.rtool button { background: none; border: none; color: #fff; font: inherit; padding: 4px 7px; border-radius: 4px; cursor: pointer; }
+.rtool button:hover { background: rgba(255,255,255,.18); }
+.rcols { position: absolute; top: 100%; right: 0; margin-top: 4px; background: #fff; color: #1b2a3d; border: 1px solid #d5dee9; border-radius: 6px; padding: 8px 10px; box-shadow: 0 8px 22px rgba(11,58,117,.2); display: flex; flex-direction: column; gap: 4px; font-weight: 400; min-width: 180px; }
+.rcols label { display: flex; gap: 7px; align-items: center; cursor: pointer; }
+.rcols input { width: auto; }
+.rguide { position: absolute; background: #e8308a; z-index: 25; pointer-events: none; }
+.rguide.v { top: 0; bottom: 0; width: 1px; }
+.rguide.h { left: 0; right: 0; height: 1px; }
+
 @media print {
-  @page { size: A4 portrait; margin: 16mm 12mm 15mm; }
+  @page { size: A4 portrait; margin: 0; }
   html, body { background: #fff; height: auto; }
   body > *:not(#report) { display: none !important; }
   .report { display: block; }
   .report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .rpage { break-after: page; page-break-after: always; }
+  .rpage:last-child { break-after: auto; page-break-after: auto; }
 }
-.rb-flow { display: flex; flex-wrap: wrap; align-items: flex-start; margin: 0 -5px; }
-.rb { box-sizing: border-box; padding: 0 5px; position: relative; margin-bottom: 6px; }
-.rb-col-hidden { display: none !important; }
-.rb-pagebreak { width: 100%; break-after: page; height: 0; }
-@media print { .rb-tools, .rb-resize, .rb-showcols, .rb-break-line { display: none !important; } .rb { break-inside: auto; } }
-.rp { font: 8.6pt/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; color: #14233a; }
-.rp .mut { color: #5a7391; }
-.rp .small { font-size: 7.4pt; margin: 3px 0 0; }
-
-/* title block */
-.rp-top { display: grid; grid-template-columns: auto 1fr auto; align-items: stretch; border: 1.5px solid #0b3a75; border-bottom: none; }
-.rp-logos { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-right: 1px solid #c9d6e4; min-width: 40mm; max-width: 72mm; flex-wrap: wrap; }
-.rp-logo-c canvas { display: block; max-height: 15mm; max-width: 34mm; width: auto; height: auto; }
-.rp-nologo { font-weight: 800; color: #0b3a75; font-size: 9pt; letter-spacing: .02em; }
-.rp-ttl { padding: 8px 14px; display: flex; flex-direction: column; justify-content: center; }
-.rp-doc-type { font-size: 7.2pt; letter-spacing: .14em; text-transform: uppercase; color: #1565c0; font-weight: 700; }
-.rp-ttl h1 { margin: 2px 0 1px; font-size: 15pt; line-height: 1.15; color: #0b3a75; }
-.rp-sub { font-size: 8.4pt; color: #5a7391; }
-.rp-docbox { border-collapse: collapse; border-left: 1px solid #c9d6e4; font-size: 7.8pt; min-width: 52mm; }
-.rp-docbox td { padding: 3.5px 8px; border-bottom: 1px solid #e1e9f3; white-space: nowrap; }
-.rp-docbox tr:last-child td { border-bottom: none; }
-.rp-docbox td:first-child { color: #5a7391; }
-.rp-docbox td:last-child { font-weight: 700; color: #0b3a75; }
-.rp-docbox td.st.ok { color: #1d7a45; } .rp-docbox td.st.warn { color: #9a6410; } .rp-docbox td.st.fail { color: #b3261e; }
-.rp-tblock { width: 100%; border-collapse: collapse; border: 1.5px solid #0b3a75; font-size: 8pt; }
-.rp-tblock td { padding: 3.5px 8px; border: 1px solid #d6e0ec; vertical-align: top; }
-.rp-tblock .tb-k { width: 17%; color: #5a7391; background: #f5f8fc; white-space: nowrap; }
-.rp-tblock .tb-v { width: 33%; font-weight: 600; }
-
-/* headings & text */
-.rp-h { font-size: 10.2pt; color: #0b3a75; margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 1.5px solid #0b3a75; break-after: avoid; letter-spacing: .01em; }
-.rp-h span { color: #1565c0; margin-right: 4px; }
-.rp-lead { margin: 0 0 7px; font-size: 8.8pt; }
-.rp h3 { font-size: 8.6pt; color: #0b3a75; margin: 0 0 5px; text-transform: none; letter-spacing: 0; }
-
-/* key figures */
-.rp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(27mm, 1fr)); border: 1px solid #c9d6e4; }
-.rk { padding: 5px 8px; border-right: 1px solid #e1e9f3; }
-.rk:last-child { border-right: none; }
-.rk.strong { background: #f2f7fd; }
-.rk.bad .rk-v { color: #b3261e; }
-.rk-k { font-size: 6.8pt; text-transform: uppercase; letter-spacing: .05em; color: #5a7391; }
-.rk-v { font-size: 11pt; font-weight: 800; color: #0b3a75; font-variant-numeric: tabular-nums; }
-
-/* figures */
-.rp-fig { margin: 0; border: 1px solid #c9d6e4; padding: 4px; break-inside: avoid; }
-.rp-fig img, .rp-fig canvas { width: 100%; height: auto; display: block; }
-.rp-fig figcaption { font-size: 7.3pt; color: #5a7391; padding: 4px 2px 0; border-top: 1px solid #eef2f7; margin-top: 3px; }
-.rp-fig figcaption b { color: #0b3a75; }
-.rp-legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 7.4pt; margin: 5px 0 8px; }
-.rp-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-.rp-two { display: grid; grid-template-columns: 0.95fr 1.05fr; gap: 10px; break-inside: avoid; }
-.rp-figs { display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(30mm, 1fr)); align-content: start; }
-.rp-gauges .gauge { margin-bottom: 7px; }
-.rp-gauges .gauge .g-head { font-size: 7.3pt; display: block; }
-.rp-gauges .gauge .g-head span { display: block; }
-.rp-gauges .gauge .bar { height: 14px; border-radius: 2px; }
-.rp-gauges .gauge .bar div { font-size: 6.6pt; }
-.rp-gauges .gauge .scale { font-size: 6.6pt; }
-
-/* tables */
-.rt { width: 100%; border-collapse: collapse; font-size: 7.5pt; border: 1px solid #c9d6e4; }
-.rt th { background: #0b3a75; color: #fff; text-align: left; font-weight: 600; padding: 4px 5px; font-size: 6.9pt; text-transform: uppercase; letter-spacing: .03em; }
-.rt td { padding: 4px 5px; border-bottom: 1px solid #e1e9f3; vertical-align: top; }
-.rt tbody tr:nth-child(even) td { background: #f7fafd; }
-.rt tr { break-inside: avoid; }
-.rt .r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rt tr.tot td { background: #eaf2fd !important; border-top: 1.5px solid #0b3a75; font-weight: 600; }
-.rt .pos { font-size: 7.1pt; color: #5a7391; }
-.rt .pos b { color: #14233a; }
-.rt .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
-.rbadge { display: inline-block; padding: 0 5px; border-radius: 2px; font-weight: 700; font-size: 6.6pt; white-space: nowrap; border: 1px solid; }
-.rbadge.ok { color: #1d7a45; border-color: #9fd3b4; } .rbadge.bad { color: #b3261e; border-color: #efb2ab; }
-.rp-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.rp-notes { margin: 0; padding-left: 15px; font-size: 7.8pt; }
-.rp-notes li { margin-bottom: 2px; }
-
-/* conclusion & revision block */
-.rp-status { border: 1px solid; border-left-width: 4px; padding: 7px 10px; font-size: 8pt; break-inside: avoid; }
-.rp-status.ok { background: #f1f9f4; border-color: #1d7a45; }
-.rp-status.warn { background: #fdf7ea; border-color: #c98a06; }
-.rp-status.fail { background: #fdf1f0; border-color: #b3261e; }
-.rp-status-t { font-weight: 800; font-size: 9.5pt; margin-bottom: 3px; }
-.rp-status.ok .rp-status-t { color: #1d7a45; } .rp-status.warn .rp-status-t { color: #9a6410; } .rp-status.fail .rp-status-t { color: #b3261e; }
-.rp-status .ln { padding-left: 11px; position: relative; }
-.rp-status .ln::before { content: '•'; position: absolute; left: 0; }
-.rp-rev { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 7.8pt; break-inside: avoid; border: 1.5px solid #0b3a75; }
-.rp-rev th { background: #f2f6fb; color: #0b3a75; text-align: left; padding: 4px 6px; border: 1px solid #c9d6e4; font-size: 7pt; text-transform: uppercase; letter-spacing: .04em; }
-.rp-rev td { padding: 5px 6px; border: 1px solid #d6e0ec; }
-.rp-rev tr.sig td { height: 30px; color: #8aa1ba; font-size: 7pt; vertical-align: top; }
 
 </style>
 </head>
@@ -794,6 +791,569 @@ body.mode-report .report-stage { display: block; background: #e9eef5; border-rad
 
 </script>
 <script>
+/*
+ * Cable Loading Planner — report layout (A4 pages with freely positioned elements)
+ *
+ * Every element of the report (title block, tables, figures, texts) is a "frame" placed on an A4 page:
+ *   frame = { p: page index, x, y: position in mm, w: width in mm, fs: text scale, hidden, title, html, cols }
+ * The height of a frame follows its content (figures keep their proportions), so nothing is ever cut.
+ * The same pages are used for the on-screen editor (Report tab) and for printing.
+ */
+(function () {
+  'use strict';
+  const MM = 96 / 25.4;                                    // CSS px per mm
+  const PG = { w: 210, h: 297, ml: 14, mr: 14, mt: 26, mb: 20, mt0: 14 };
+  const CW = PG.w - PG.ml - PG.mr;                         // usable width: 182 mm
+  const GAP = 5;
+  const HALF = (CW - GAP) / 2;
+  let A = null;                                            // API given by the application
+  let blocks = [], built = null, sel = null, editing = null;
+
+  /* ------------------------------------------------------------------ */
+  const S = () => A.state();
+  function rep() {
+    const s = S();
+    if (!s.rep || typeof s.rep !== 'object') s.rep = {};
+    const r = s.rep;
+    r.frames = r.frames || {}; r.custom = r.custom || []; r.pages = Math.max(1, r.pages || 1);
+    return r;
+  }
+  const fr = id => (rep().frames[id] = rep().frames[id] || {});
+  const esc = s => A.esc(s);
+  const fmt = (v, d) => A.fmt(v, d);
+  const num = (v, d) => A.num(v, d);
+
+  /* ================================================================== */
+  /* Content                                                             */
+  /* ================================================================== */
+  function content() {
+    const st = S(), res = A.result(), i = st.info, c = st.carrier, w = st.winding, t = res.totals;
+    const coil = A.kind() === 'coil';
+    const typeLabel = (A.CARRIER_TYPES[c.type] || {}).label || '';
+    const equipment = `${c.name ? c.name + ' — ' : ''}${typeLabel}`;
+    const docNo = i.reference || '—', rev = i.revision || '0';
+    const status = { ok: ['OK', 'Loading plan OK'], warn: ['TO CHECK', 'Loading plan to be checked'], fail: ['NOT OK', 'Loading plan NOT OK'] }[t.status];
+    const rot = w.rotation === 'ccw' ? 'counter-clockwise' : 'clockwise';
+    const unitC = coil ? 'compartment' : 'bay';
+    const B = [];
+
+    // figures (canvases drawn by the application)
+    const figs = [];
+    figs.push({ cv: A.renderImage('section', 'all', 820, coil ? 470 : 440), cap: coil ? 'Cross-section through the centre (full diameter). Red dashed line = maximum stack (freeboard limit).' : 'Cross-section along the drum axis. Red dashed line = freeboard limit.' });
+    if (coil) figs.push({ cv: A.renderImage('plan', 'all', 560, 460), cap: `Plan view — top two layers, coiling ${rot} seen from above.` });
+    else res.compartments.slice(0, 3).forEach(cr => figs.push({ cv: A.renderImage('side', String(cr.comp.index), 500, 400), cap: `Side view from the ${w.startSide === 'right' ? 'right' : 'left'} flange (start side) — ${cr.comp.name}.` }));
+
+    const logos = (i.logos || []).map((l, k) => `<span class="rf-logo" data-logo="${k}"></span>`).join('');
+    B.push({ id: 'title', name: 'Title block', w: CW, html: `<div class="rt-title">
+      <div class="rt-logos">${logos || '<span class="rt-app">Cable Loading Planner</span>'}</div>
+      <div class="rt-main"><div class="rt-kicker">Cable loading plan</div><div class="rt-h1">${esc(st.name || 'Untitled project')}</div><div class="rt-sub">${esc(equipment)}${i.vessel ? ' · ' + esc(i.vessel) : ''}</div></div>
+      <table class="rt-doc"><tr><th>Document No.</th><td>${esc(docNo)}</td></tr><tr><th>Revision</th><td>${esc(rev)}</td></tr><tr><th>Date</th><td>${esc(i.date || '—')}</td></tr><tr><th>Status</th><td class="st-${t.status}">${status[0]}</td></tr></table></div>` });
+
+    const kv = (k, v) => `<th>${esc(k)}</th><td>${esc(v || '—')}</td>`;
+    B.push({ id: 'ident', name: 'Project information', w: CW, html: `<table class="rt-kv">
+      <tr>${kv('Client / project', i.client)}${kv('Vessel / site', i.vessel)}</tr>
+      <tr>${kv('Equipment', equipment)}${kv('Max. cable load (SWL)', num(c.maxLoad) ? fmt(num(c.maxLoad), 1) + ' t' : '')}</tr>
+      <tr>${kv('Empty weight (tare)', num(c.tare) ? fmt(num(c.tare), 1) + ' t' : '')}${kv('Coiling', `${w.stacking === 'nested' ? 'Nested' : 'Square'} stacking, ${rot}`)}</tr>
+      <tr>${kv('Prepared by', i.preparedBy)}${kv('Checked by', i.checkedBy)}</tr></table>` });
+
+    const summary = `This plan covers ${fmt(t.length, 0)} m of cable (${fmt(t.weight, 1)} t) in ${st.sections.length} section${st.sections.length > 1 ? 's' : ''}, loaded in ${res.compartments.length} ${unitC}${res.compartments.length > 1 ? 's' : ''} of ${esc(equipment)}${t.loadPct !== null ? `, i.e. ${fmt(t.loadPct * 100, 1)} % of the maximum cable load` : ''}. The cable is coiled ${rot}.`;
+    B.push({ id: 'summary', name: 'Summary', title: 'Summary', w: CW, html: `<p>${summary}</p>` });
+
+    const kf = [['Cable loaded', `${fmt(t.length, 0)} m`], ['Cable weight', `${fmt(t.weight, 1)} t`]];
+    if (num(c.tare) > 0) kf.push([coil ? 'Total weight (equipment + cable)' : 'Total drum weight (drum + cable)', `${fmt(t.gross, 1)} t`]);
+    if (t.loadPct !== null) kf.push(['Load vs SWL', `${fmt(t.loadPct * 100, 1)} %`]);
+    if (t.vcg !== null) kf.push(['Cable VCG above floor', `${fmt(t.vcg, 2)} m`]);
+    B.push({ id: 'keyfig', name: 'Key figures', w: CW, html: `<table class="rt-kf"><tr>${kf.map(k => `<th>${esc(k[0])}</th>`).join('')}</tr><tr>${kf.map(k => `<td>${k[1]}</td>`).join('')}</tr></table>` });
+
+    const legend = st.sections.map((s, k) => `<span><i style="background:${esc(A.sectionColor(k))}"></i>${esc(s.name)}</span>`).join('');
+    figs.forEach((f, k) => {
+      B.push({ id: 'fig' + (k + 1), name: k === 0 ? 'Figure — cross-section' : coil ? 'Figure — plan view' : `Figure — side view ${k}`, fig: k, w: k === 0 ? CW : coil ? 100 : (figs.length > 2 ? HALF : 100),
+        html: `<figure class="rt-fig"><div class="rt-canvas" data-fig="${k}"></div><figcaption><b class="rf-fign">Figure</b> — ${esc(f.cap)}</figcaption>${k === 0 ? `<div class="rt-legend">${legend}</div>` : ''}</figure>` });
+    });
+
+    // fill per compartment (table with bars, no text inside the bars)
+    B.push({ id: 'fill', name: `Fill per ${unitC}`, title: `Fill per ${unitC}`, w: coil ? CW - 100 - GAP : CW, html: `<table class="rt-t"><thead><tr><th>${coil ? 'Comp.' : 'Bay'}</th><th class="r">Loaded</th><th class="r">Layers</th><th>Stack used</th></tr></thead><tbody>${res.compartments.map(cr => `<tr><td><b>${esc(cr.comp.label.replace('Compartment ', 'C'))}</b><br><span class="mut">${esc(cr.comp.name)}</span></td><td class="r">${fmt(cr.length, 0)} m<br><span class="mut">${fmt(cr.weight, 1)} t</span></td><td class="r">${cr.fill.layers}</td><td><div class="rt-bar"><i style="width:${Math.min(100, cr.usedPct * 100).toFixed(1)}%"></i></div><span class="nw"><b>${fmt(cr.usedPct * 100, 0)} %</b> <span class="mut">· ${fmt(cr.used, 2)} / ${fmt(cr.comp.stackMax - cr.comp.stackMin, 2)} m</span></span></td></tr>`).join('')}</tbody></table>` });
+
+    // cable sections
+    const secRows = res.sections.map((sr, k) => {
+      const s = st.sections[k], cr = res.compartments[sr.compIndex], cab = sr.cable;
+      let stt = '<span class="ok">OK</span>';
+      if (sr.placed === undefined || !cr) stt = '<span class="bad">Error</span>';
+      else if (sr.overflow > 0.01) stt = `<span class="bad">Overflow ${fmt(sr.overflow, 0)} m</span>`;
+      else if (cab && num(cab.mbr) > 0 && sr.minRadius < num(cab.mbr)) stt = '<span class="bad">MBR</span>';
+      const off = cr ? cr.sectionIdx.length - cr.sectionIdx.indexOf(k) : '';
+      return `<tr><td>${k + 1}</td><td><i class="sw" style="background:${esc(A.sectionColor(k))}"></i><b>${esc(s.name)}</b><br><span class="mut">${esc(cab ? cab.name : '—')}${cab ? ` · Ø ${fmt(num(cab.od), 0)} mm` : ''}</span></td>
+        <td>${cr ? esc(cr.comp.label.replace('Compartment ', 'C')) : '—'}</td><td class="r">${fmt(sr.placed, 0)} m</td><td class="r">${fmt(sr.weight, 1)} t</td><td class="r">${A.topText(sr)}</td>
+        <td>${cr ? A.posText(cr, sr.first, false) : '—'}</td><td>${cr ? A.posText(cr, sr.last, true) : '—'}</td><td class="r">${off ? '#' + off : ''}</td><td>${stt}</td></tr>`;
+    }).join('');
+    B.push({ id: 'sections', name: 'Cable sections', title: 'Cable sections — start and end positions', w: CW, html: `<table class="rt-t"><thead><tr><th>#</th><th>Section / cable</th><th>${coil ? 'Comp.' : 'Bay'}</th><th class="r">Loaded</th><th class="r">Weight</th><th class="r">Top</th><th>Inner end (start)</th><th>Outer end (end)</th><th class="r">Off</th><th>Status</th></tr></thead><tbody>${secRows}</tbody></table>
+      <p class="rt-note">Inner end = first end loaded (bottom of the coil / on the barrel). Outer end = last end loaded. Off = order in which the sections come off. Top = highest point of the section.</p>` });
+
+    // compartments (no spare capacity)
+    B.push({ id: 'comp', name: coil ? 'Compartments' : 'Bays', title: coil ? 'Compartments' : 'Bays', w: CW, html: `<table class="rt-t"><thead><tr><th>${coil ? 'Compartment' : 'Bay'}</th><th>Geometry</th><th class="r">Sections</th><th class="r">Loaded</th><th class="r">Weight</th><th class="r">Layers</th><th class="r">Turns / layer</th><th class="r">Stack used</th>${coil ? '<th class="r">VCG</th>' : ''}</tr></thead><tbody>
+      ${res.compartments.map(cr => { const cc = cr.comp; return `<tr><td><b>${esc(cc.label)}</b><br><span class="mut">${esc(cc.name)}</span></td><td>${coil ? `R ${fmt(cc.acrossMin, 2)}–${fmt(cc.acrossMax, 2)} m · H ${fmt(cc.stackMax, 2)} m` : `W ${fmt(cc.acrossMax - cc.acrossMin, 2)} m · R ${fmt(cc.stackMin, 2)}–${fmt(cc.stackMax, 2)} m`}</td><td class="r">${cr.sectionIdx.length}</td><td class="r">${fmt(cr.length, 0)} m</td><td class="r">${fmt(cr.weight, 1)} t</td><td class="r">${cr.fill.layers}</td><td class="r">${cr.turnsLayer1}</td><td class="r">${fmt(cr.used, 2)} m · ${fmt(cr.usedPct * 100, 0)} %</td>${coil ? `<td class="r">${cr.vcg === null ? '—' : fmt(cr.vcg, 2) + ' m'}</td>` : ''}</tr>`; }).join('')}
+      <tr class="tot"><td><b>Total</b></td><td></td><td class="r">${st.sections.length}</td><td class="r">${fmt(t.length, 0)} m</td><td class="r">${fmt(t.weight, 1)} t</td><td></td><td></td><td></td>${coil ? `<td class="r">${t.vcg === null ? '—' : fmt(t.vcg, 2) + ' m'}</td>` : ''}</tr>
+      ${num(c.tare) > 0 ? `<tr class="tot"><td colspan="4"><b>${coil ? 'Total weight (equipment + cable)' : 'Total drum weight (drum + cable)'}</b></td><td class="r"><b>${fmt(t.gross, 1)} t</b></td><td colspan="${coil ? 4 : 3}" class="mut">tare ${fmt(num(c.tare), 1)} t + cable ${fmt(t.weight, 1)} t</td></tr>` : ''}</tbody></table>` });
+
+    // geometry & cables
+    let geo;
+    if (coil) {
+      geo = `<table class="rt-t"><thead><tr><th>Ring</th><th class="r">Inner Ø</th><th class="r">Wall</th><th class="r">Height</th></tr></thead><tbody>${A.ringsSorted().map(r => `<tr><td>${esc(r.name)}</td><td class="r">${fmt(num(r.diameter), 2)} m</td><td class="r">${fmt(num(r.thickness), 0)} mm</td><td class="r">${fmt(num(r.height), 2)} m</td></tr>`).join('')}<tr><td>Freeboard</td><td></td><td></td><td class="r">${fmt(num(c.freeboard), 2)} m</td></tr></tbody></table>`;
+    } else {
+      const d = c.drum;
+      geo = `<table class="rt-t"><thead><tr><th>Item</th><th class="r">Value</th></tr></thead><tbody><tr><td>Barrel Ø</td><td class="r">${fmt(num(d.barrelDiameter), 2)} m</td></tr><tr><td>Flange Ø</td><td class="r">${fmt(num(d.flangeDiameter), 2)} m</td></tr><tr><td>Flange thickness</td><td class="r">${fmt(num(d.flangeThickness), 0)} mm</td></tr><tr><td>Freeboard</td><td class="r">${fmt(num(d.freeboard), 2)} m</td></tr>${d.bays.map(b => `<tr><td>${esc(b.name)} — inner width</td><td class="r">${fmt(num(b.width), 2)} m</td></tr>`).join('')}</tbody></table>`;
+    }
+    B.push({ id: 'geom', name: 'Equipment geometry', title: 'Equipment geometry', w: HALF, html: geo });
+    B.push({ id: 'cables', name: 'Cables', title: 'Cables', w: HALF, html: `<table class="rt-t"><thead><tr><th>Cable</th><th class="r">OD</th><th class="r">Weight</th><th class="r">MBR</th></tr></thead><tbody>${st.cables.map(cb => `<tr><td>${esc(cb.name)}</td><td class="r">${fmt(num(cb.od), 0)} mm</td><td class="r">${fmt(num(cb.weight), 1)} kg/m</td><td class="r">${fmt(num(cb.mbr), 2)} m</td></tr>`).join('')}</tbody></table>` });
+
+    // capacity
+    const rows = A.capRows();
+    B.push({ id: 'capacity', name: 'Maximum capacity', title: 'Maximum capacity — each cable alone, empty equipment', w: CW, html: `<table class="rt-t"><thead><tr><th>Cable</th>${res.compartments.map(cr => `<th class="r">${esc(cr.comp.label.replace('Compartment ', 'C'))}</th>`).join('')}<th class="r">By volume</th>${num(c.maxLoad) ? '<th class="r">By weight (SWL)</th>' : ''}<th class="r">Max. loadable</th><th class="r">Working 80 %</th></tr></thead><tbody>
+      ${rows.map(cp => `<tr><td>${esc(cp.row.cable.name)}</td>${cp.row.caps.map(v => `<td class="r">${fmt(v, 0)} m</td>`).join('')}<td class="r">${fmt(cp.vol, 0)} m</td>${num(c.maxLoad) ? `<td class="r">${fmt(cp.bySwl, 0)} m</td>` : ''}<td class="r"><b>${fmt(cp.max, 0)} m</b><br><span class="mut">by ${cp.byWeight ? 'weight' : 'volume'}</span></td><td class="r">${fmt(cp.working, 0)} m</td></tr>`).join('')}</tbody></table>
+      <p class="rt-note">Max. loadable = the smaller of the volume capacity and the length allowed by the SWL.</p>` });
+
+    B.push({ id: 'notes', name: 'Assumptions and notes', title: 'Assumptions and notes', w: CW, html: `<ul class="rt-ul">
+      <li>Turn-by-turn simulation, layers alternate direction; ${w.stacking === 'nested' ? 'nested stacking (layer pitch 0.866 × OD)' : 'square stacking (layer pitch 1.0 × OD)'}; gap between turns ${fmt(num(w.turnGapPct), 1)} % of OD ${A.gapMm(w.turnGapPct)}, between layers ${fmt(num(w.layerGapPct), 1)} % of OD.</li>
+      <li>Coiling ${rot} ${coil ? 'seen from above' : 'seen from the start flange'}. Freeboard ${fmt(num(coil ? c.freeboard : c.drum.freeboard), 2)} m kept below the ${coil ? 'top of the walls' : 'flange rim'}.</li>
+      <li>Planning aid: to be checked against the equipment drawings, the cable data sheets and the loading procedure.</li>${i.notes ? `<li>${esc(i.notes)}</li>` : ''}</ul>` });
+
+    const order = { fail: 0, warn: 1, info: 2, ok: 3 };
+    const checks = res.checks.slice().sort((a, b) => order[a.level] - order[b.level]);
+    B.push({ id: 'conclusion', name: 'Conclusion', title: 'Conclusion', w: CW, html: `<div class="rt-concl st-${t.status}"><div class="rt-concl-h">${status[1]}</div><ul>${checks.map(ch => `<li>${esc(ch.text)}</li>`).join('')}</ul></div>` });
+
+    B.push({ id: 'revision', name: 'Revision & signatures', w: CW, html: `<table class="rt-rev"><thead><tr><th>Rev.</th><th>Date</th><th>Description</th><th>Prepared</th><th>Checked</th><th>Approved</th></tr></thead>
+      <tbody><tr><td>${esc(rev)}</td><td>${esc(i.date || '')}</td><td>${esc(i.revDescription || 'Issued for use')}</td><td>${esc(i.preparedBy || '')}</td><td>${esc(i.checkedBy || '')}</td><td>${esc(i.approvedBy || '')}</td></tr>
+      <tr class="sig"><td colspan="3">Signature</td><td></td><td></td><td></td></tr></tbody></table>` });
+
+    rep().custom.forEach(cb => B.push({ id: cb.id, name: 'Text', title: '', custom: true, w: CW, html: '<p>Double-click to write your text.</p>' }));
+    return { blocks: B, figs, meta: { docNo, rev, project: st.name || '', client: i.client || '' } };
+  }
+
+  /* ================================================================== */
+  /* Rendering                                                           */
+  /* ================================================================== */
+  function frameHTML(b, cfg, numStr) {
+    const title = cfg.title !== undefined ? cfg.title : (b.title || '');
+    const head = title || (b.title !== undefined && editing === b.id) ? `<div class="rf-h">${numStr && title ? `<span class="rf-n">${numStr}</span>` : ''}<span class="rf-t" data-ph="Title">${esc(title)}</span></div>` : '';
+    return `${head}<div class="rf-body">${cfg.html !== undefined ? cfg.html : b.html}</div>`;
+  }
+
+  function pageChrome(k, n, meta) {
+    const st = S();
+    const logos = (st.info.logos || []).map((l, j) => `<span class="rf-logo" data-logo="${j}"></span>`).join('');
+    return `${k > 0 ? `<div class="pg-hdr"><div class="pg-hl">${logos ? `<span class="pg-logos">${logos}</span>` : ''}<span>Cable loading plan — ${esc(meta.project)}</span></div><div class="pg-hr">${esc(meta.docNo)} · Rev. ${esc(meta.rev)}</div></div>` : ''}
+      <div class="pg-ftr"><span>${esc(meta.docNo)} · Rev. ${esc(meta.rev)}</span><span>${esc(meta.client)}</span><span>Page ${k + 1} of ${n}</span></div>`;
+  }
+
+  function render(target, editor) {
+    built = content();
+    blocks = built.blocks;
+    const R = rep();
+    const visible = blocks.filter(b => !fr(b.id).hidden);
+    // place what has never been placed (new blocks, first use)
+    if (visible.some(b => fr(b.id).x === undefined)) autoLayout(visible.filter(b => fr(b.id).x === undefined), true);
+    const maxP = Math.max(0, ...visible.map(b => fr(b.id).p || 0));
+    R.pages = Math.max(R.pages, maxP + 1);
+    // numbering in reading order
+    const ordered = visible.slice().sort((a, b) => (fr(a.id).p - fr(b.id).p) || (fr(a.id).y - fr(b.id).y) || (fr(a.id).x - fr(b.id).x));
+    let n = 0, f = 0;
+    const nums = {}, fign = {};
+    ordered.forEach(b => {
+      const cfg = fr(b.id), title = cfg.title !== undefined ? cfg.title : (b.title || '');
+      if (title) nums[b.id] = ++n + '.';
+      if (b.fig !== undefined) fign[b.id] = ++f;
+    });
+    let html = '';
+    for (let k = 0; k < R.pages; k++) {
+      html += `<div class="rpage" data-p="${k}">${pageChrome(k, R.pages, built.meta)}`;
+      visible.filter(b => (fr(b.id).p || 0) === k).forEach(b => {
+        const cfg = fr(b.id);
+        html += `<div class="rframe k-${b.fig !== undefined ? 'fig' : b.id}${b.custom ? ' k-text' : ''}${cfg.html !== undefined && !b.custom ? ' frozen' : ''}" data-id="${b.id}" style="left:${cfg.x}mm;top:${cfg.y}mm;width:${cfg.w || b.w}mm;font-size:${(cfg.fs || 1) * 100}%">${frameHTML(b, cfg, nums[b.id])}</div>`;
+      });
+      html += '</div>';
+    }
+    target.innerHTML = `<div class="rdoc${editor ? ' editor' : ''}">${html}</div>`;
+    // figures, figure numbers, logos, hidden columns
+    target.querySelectorAll('.rt-canvas').forEach(el => { const fg = built.figs[+el.dataset.fig]; if (fg) el.appendChild(fg.cv.cloneNode ? cloneCanvas(fg.cv) : fg.cv); });
+    target.querySelectorAll('.rframe').forEach(el => {
+      const fn = el.querySelector('.rf-fign');
+      if (fn && fign[el.dataset.id]) fn.textContent = 'Figure ' + fign[el.dataset.id];
+      hideCols(el, fr(el.dataset.id).cols || []);
+    });
+    target.querySelectorAll('.rf-logo').forEach(el => { const cv = A.logoCanvas((S().info.logos || [])[+el.dataset.logo]); if (cv) el.appendChild(cv); });
+    if (editor) decorate(target);
+  }
+  function cloneCanvas(src) { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; c.getContext('2d').drawImage(src, 0, 0); return c; }
+  function hideCols(el, cols) {
+    const tbl = el.querySelector('.rf-body table');
+    if (!tbl || !cols.length) return;
+    [...tbl.rows].forEach(row => { let col = 0; [...row.cells].forEach(cell => { const sp = cell.colSpan || 1; if (sp === 1 && cols.includes(col)) cell.style.display = 'none'; col += sp; }); });
+  }
+
+  /* height of each block at a given width (mm), measured off-screen */
+  function measure(list) {
+    const m = document.createElement('div');
+    m.className = 'rdoc rmeasure';
+    document.body.appendChild(m);
+    const out = {};
+    list.forEach(b => {
+      const cfg = fr(b.id);
+      const el = document.createElement('div');
+      el.className = 'rframe';
+      el.style.cssText = `position:relative;left:0;top:0;width:${cfg.w || b.w}mm;font-size:${(cfg.fs || 1) * 100}%`;
+      el.innerHTML = frameHTML(b, cfg, '0.');
+      el.querySelectorAll('.rt-canvas').forEach(c => { const fg = built.figs[+c.dataset.fig]; if (fg) { const cv = document.createElement('canvas'); cv.width = fg.cv.width; cv.height = fg.cv.height; c.appendChild(cv); } });
+      m.appendChild(el);
+      out[b.id] = el.getBoundingClientRect().height / MM;
+    });
+    m.remove();
+    return out;
+  }
+
+  /* place blocks one after the other, side by side when they fit, page after page */
+  function autoLayout(list, append) {
+    const R = rep();
+    const H = measure(list);
+    const usable = PG.h - PG.mt - PG.mb;   // (page 1 has a little more room)
+    const top = pg => (pg === 0 ? PG.mt0 : PG.mt);
+    let p = 0, y = top(0), x = PG.ml, rowH = 0;
+    if (append) { // continue after what is already on the pages
+      const placed = blocks.filter(b => !fr(b.id).hidden && fr(b.id).x !== undefined && !list.includes(b));
+      if (placed.length) {
+        const all = measure(placed);
+        p = Math.max(...placed.map(b => fr(b.id).p || 0));
+        y = Math.max(top(p), ...placed.filter(b => (fr(b.id).p || 0) === p).map(b => fr(b.id).y + all[b.id] + GAP));
+      }
+    }
+    list.forEach(b => {
+      const cfg = fr(b.id);
+      const w = Math.min(cfg.w || b.w, CW);
+      let h = H[b.id];
+      if (x > PG.ml && x + w > PG.ml + CW + 0.5) { y += rowH + GAP; x = PG.ml; rowH = 0; }
+      if (h > usable) { cfg.fs = Math.max(0.55, Math.floor(usable / h * (cfg.fs || 1) * 100) / 100); h = usable; }
+      if (y + h > PG.h - PG.mb) { p += 1; y = top(p); x = PG.ml; rowH = 0; }
+      Object.assign(cfg, { p, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, w });
+      x += w + GAP; rowH = Math.max(rowH, h);
+      if (x > PG.ml + CW - 20) { y += rowH + GAP; x = PG.ml; rowH = 0; }
+    });
+    R.pages = Math.max(R.pages, p + 1);
+  }
+
+  /* ================================================================== */
+  /* Editor                                                              */
+  /* ================================================================== */
+  let stage = null;
+  function showEditor(el) {
+    stage = el;
+    render(stage, true);
+    if (sel && !stage.querySelector(`.rframe[data-id="${sel}"]`)) sel = null;
+    select(sel);
+  }
+  function hideEditor() { closeEdit(true); sel = null; }
+
+  function decorate(root) {
+    root.querySelectorAll('.rframe').forEach(el => {
+      el.insertAdjacentHTML('beforeend', '<span class="hd hd-w" data-h="w"></span><span class="hd hd-e" data-h="e"></span><span class="hd hd-nw" data-h="w"></span><span class="hd hd-ne" data-h="e"></span><span class="hd hd-sw" data-h="w"></span><span class="hd hd-se" data-h="e"></span>');
+      const pg = el.closest('.rpage');
+      if (el.offsetTop + el.offsetHeight > pg.clientHeight - PG.mb * MM + 2) el.classList.add('over');
+    });
+    // frames that cover each other on the same page
+    root.querySelectorAll('.rpage').forEach(pg => {
+      const fs = [...pg.querySelectorAll('.rframe')];
+      fs.forEach((a, i) => fs.slice(i + 1).forEach(b => {
+        const ox = Math.min(a.offsetLeft + a.offsetWidth, b.offsetLeft + b.offsetWidth) - Math.max(a.offsetLeft, b.offsetLeft);
+        const oy = Math.min(a.offsetTop + a.offsetHeight, b.offsetTop + b.offsetHeight) - Math.max(a.offsetTop, b.offsetTop);
+        if (ox > 4 && oy > 4) { a.classList.add('overlap'); b.classList.add('overlap'); }
+      }));
+    });
+  }
+
+  function select(id) {
+    sel = id;
+    if (!stage) return;
+    stage.querySelectorAll('.rframe.sel').forEach(e => e.classList.remove('sel'));
+    stage.querySelectorAll('.rtool').forEach(e => e.remove());
+    if (!id) { A.onSelect && A.onSelect(null); return; }
+    const el = stage.querySelector(`.rframe[data-id="${id}"]`);
+    if (!el) return;
+    el.classList.add('sel');
+    const b = blocks.find(x => x.id === id), cfg = fr(id);
+    const isTable = !!el.querySelector('.rf-body table');
+    const tb = document.createElement('div');
+    tb.className = 'rtool';
+    tb.innerHTML = `<b>${esc(b ? b.name : '')}</b>
+      <button data-t="fs-" title="Smaller text">A−</button><button data-t="fs+" title="Larger text">A+</button>
+      <button data-t="full" title="Full page width">↔ Full width</button><button data-t="half" title="Half page width">½</button>
+      ${b && b.fig === undefined ? '<button data-t="edit" title="Edit the text (or double-click)">✎ Edit</button>' : ''}
+      ${isTable ? '<button data-t="cols" title="Show / hide columns">Columns ▾</button>' : ''}
+      ${cfg.html !== undefined && b && !b.custom ? '<button data-t="live" title="Back to the calculated content">↺ Live data</button>' : ''}
+      <button data-t="del" title="Remove from the report (Delete key)">🗑</button>`;
+    el.closest('.rpage').appendChild(tb);
+    placeTool(el, tb);
+    A.onSelect && A.onSelect(id);
+  }
+  function placeTool(el, tb) {
+    const top = el.offsetTop - 34;
+    tb.style.left = Math.max(4, Math.min(el.offsetLeft, el.closest('.rpage').clientWidth - tb.offsetWidth - 4)) + 'px';
+    tb.style.top = (top < 4 ? el.offsetTop + el.offsetHeight + 6 : top) + 'px';
+  }
+
+  function toolAction(t, btn) {
+    const id = sel, b = blocks.find(x => x.id === id), cfg = fr(id);
+    if (!b) return;
+    if (t === 'fs-' || t === 'fs+') { cfg.fs = Math.round(Math.max(0.5, Math.min(2, (cfg.fs || 1) + (t === 'fs+' ? 0.1 : -0.1))) * 10) / 10; if (cfg.fs === 1) delete cfg.fs; }
+    else if (t === 'full') { cfg.x = PG.ml; cfg.w = CW; }
+    else if (t === 'half') { cfg.w = HALF; if (cfg.x + HALF > PG.w - PG.mr) cfg.x = PG.w - PG.mr - HALF; }
+    else if (t === 'edit') { openEdit(id); return; }
+    else if (t === 'live') { delete cfg.html; delete cfg.title; delete cfg.cols; }
+    else if (t === 'del') { removeFrame(id); return; }
+    else if (t === 'cols') { colsMenu(btn); return; }
+    commit();
+  }
+  function removeFrame(id) {
+    const b = blocks.find(x => x.id === id);
+    if (b && b.custom) { rep().custom = rep().custom.filter(c => c.id !== id); delete rep().frames[id]; }
+    else fr(id).hidden = true;
+    sel = null; commit();
+  }
+
+  function colsMenu(btn) {
+    const el = stage.querySelector(`.rframe[data-id="${sel}"]`);
+    const tbl = el && el.querySelector('.rf-body table');
+    if (!tbl) return;
+    const head = tbl.tHead ? tbl.tHead.rows[0] : tbl.rows[0];
+    const cols = fr(sel).cols || [];
+    let col = 0;
+    const items = [...head.cells].map(cell => { const c = col; col += cell.colSpan || 1; return (cell.colSpan || 1) === 1 ? { c, name: cell.textContent.trim() || '#' } : null; }).filter(Boolean);
+    const m = document.createElement('div');
+    m.className = 'rcols';
+    m.innerHTML = items.map(it => `<label><input type="checkbox" data-c="${it.c}" ${cols.includes(it.c) ? '' : 'checked'}> ${esc(it.name)}</label>`).join('');
+    const tb = btn.closest('.rtool');
+    tb.appendChild(m);
+    m.addEventListener('change', e => {
+      const c = +e.target.dataset.c, cfg = fr(sel);
+      cfg.cols = (cfg.cols || []).filter(x => x !== c);
+      if (!e.target.checked) cfg.cols.push(c);
+      if (!cfg.cols.length) delete cfg.cols;
+      hideColsLive(el, cfg.cols || []);
+      A.save();
+    });
+  }
+  function hideColsLive(el, cols) { el.querySelectorAll('.rf-body table td, .rf-body table th').forEach(c => { c.style.display = ''; }); hideCols(el, cols); }
+
+  /* in-place text editing (double-click) */
+  function openEdit(id) {
+    closeEdit(true);
+    editing = id;
+    render(stage, true);
+    select(id);
+    const el = stage.querySelector(`.rframe[data-id="${id}"]`);
+    if (!el) return;
+    el.classList.add('editing');
+    const body = el.querySelector('.rf-body'), t = el.querySelector('.rf-t');
+    body.contentEditable = 'true';
+    if (t) t.contentEditable = 'true';
+    el.dataset.orig = body.innerHTML;
+    el.dataset.origT = t ? t.textContent : '';
+    (body).focus();
+  }
+  function closeEdit(save) {
+    if (!editing || !stage) { editing = null; return; }
+    const el = stage.querySelector(`.rframe[data-id="${editing}"]`);
+    const id = editing;
+    editing = null;
+    if (el && save) {
+      const cfg = fr(id), b = blocks.find(x => x.id === id);
+      const body = el.querySelector('.rf-body'), t = el.querySelector('.rf-t');
+      if (body.innerHTML !== el.dataset.orig) cfg.html = body.innerHTML;
+      if (t && t.textContent !== el.dataset.origT) { const v = t.textContent.trim(); if (b && !b.custom && v === (b.title || '')) delete cfg.title; else cfg.title = v; }
+    }
+    commit();
+  }
+
+  function commit() { A.save(); if (stage) { render(stage, true); select(sel); } A.onChange && A.onChange(); }
+
+  /* ---- move / resize with snapping ---- */
+  let drag = null;
+  function guides(pageEl, xs, ys) {
+    pageEl.querySelectorAll('.rguide').forEach(g => g.remove());
+    xs.forEach(x => pageEl.insertAdjacentHTML('beforeend', `<div class="rguide v" style="left:${x}mm"></div>`));
+    ys.forEach(y => pageEl.insertAdjacentHTML('beforeend', `<div class="rguide h" style="top:${y}mm"></div>`));
+  }
+  function snapLines(pageEl, id) {
+    const xs = [PG.ml, PG.w - PG.mr, PG.w / 2], ys = [+pageEl.dataset.p === 0 ? PG.mt0 : PG.mt, PG.h - PG.mb];
+    pageEl.querySelectorAll('.rframe').forEach(o => {
+      if (o.dataset.id === id) return;
+      const l = o.offsetLeft / MM, t = o.offsetTop / MM, w = o.offsetWidth / MM, h = o.offsetHeight / MM;
+      xs.push(l, l + w, l + w / 2); ys.push(t, t + h, t + h + GAP, t - GAP);
+    });
+    return { xs, ys };
+  }
+  const near = (v, list, tol) => { let best = null; list.forEach(c => { if (Math.abs(c - v) <= tol && (best === null || Math.abs(c - v) < Math.abs(best - v))) best = c; }); return best; };
+
+  function pageAt(cx, cy) {
+    return [...stage.querySelectorAll('.rpage')].find(p => { const r = p.getBoundingClientRect(); return cy >= r.top - 20 && cy <= r.bottom + 20 && cx >= r.left - 60 && cx <= r.right + 60; });
+  }
+
+  function bind(el) {
+    // clicking anywhere outside the frame being edited ends the editing (and keeps the text)
+    document.addEventListener('pointerdown', e => {
+      if (editing && stage && !stage.contains(e.target)) closeEdit(true);
+    }, true);
+    el.addEventListener('pointerdown', e => {
+      if (e.button !== 0 || !stage) return;
+      if (e.target.closest('.rtool')) return;
+      const frame = e.target.closest('.rframe');
+      if (editing && frame && frame.dataset.id === editing) return;      // typing inside the edited frame
+      if (editing) closeEdit(true);
+      if (!frame) { if (e.target.closest('.rpage')) select(null); return; }
+      const id = frame.dataset.id;
+      if (sel !== id) select(id);
+      const fresh = stage.querySelector(`.rframe[data-id="${id}"]`);
+      const h = e.target.closest('.hd');
+      const r = fresh.getBoundingClientRect();
+      drag = { id, el: fresh, mode: h ? h.dataset.h : 'move', sx: e.clientX, sy: e.clientY,
+        x0: fresh.offsetLeft / MM, y0: fresh.offsetTop / MM, w0: fresh.offsetWidth / MM, gx: (e.clientX - r.left) / MM, gy: (e.clientY - r.top) / MM, moved: false };
+      fresh.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    el.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const dx = (e.clientX - drag.sx) / MM, dy = (e.clientY - drag.sy) / MM;
+      if (!drag.moved && Math.hypot(dx, dy) < 0.8) return;
+      drag.moved = true;
+      stage.querySelectorAll('.rtool').forEach(t => { t.style.visibility = 'hidden'; });
+      const fEl = drag.el;
+      if (drag.mode === 'move') {
+        const pg = pageAt(e.clientX, e.clientY) || fEl.closest('.rpage');
+        if (fEl.parentElement !== pg) pg.appendChild(fEl);
+        const pr = pg.getBoundingClientRect();
+        let x = (e.clientX - pr.left) / MM - drag.gx, y = (e.clientY - pr.top) / MM - drag.gy;
+        const w = fEl.offsetWidth / MM, h = fEl.offsetHeight / MM;
+        const L = snapLines(pg, drag.id), gx = [], gy = [];
+        const tol = 1.6;
+        let s;
+        if ((s = near(x, L.xs, tol)) !== null) { x = s; gx.push(s); }
+        else if ((s = near(x + w, L.xs, tol)) !== null) { x = s - w; gx.push(s); }
+        else if ((s = near(x + w / 2, L.xs, tol)) !== null) { x = s - w / 2; gx.push(s); }
+        if ((s = near(y, L.ys, tol)) !== null) { y = s; gy.push(s); }
+        else if ((s = near(y + h, L.ys, tol)) !== null) { y = s - h; gy.push(s); }
+        x = Math.max(0, Math.min(PG.w - w, x)); y = Math.max(0, Math.min(PG.h - 8, y));
+        fEl.style.left = x + 'mm'; fEl.style.top = y + 'mm';
+        drag.res = { p: +pg.dataset.p, x, y };
+        guides(pg, gx, gy);
+      } else {
+        const pg = fEl.closest('.rpage');
+        let x = drag.x0, w = drag.w0;
+        if (drag.mode === 'e') w = drag.w0 + dx;
+        else { x = drag.x0 + dx; w = drag.w0 - dx; }
+        const L = snapLines(pg, drag.id), gx = [];
+        let s;
+        if (drag.mode === 'e' && (s = near(x + w, L.xs, 1.6)) !== null) { w = s - x; gx.push(s); }
+        if (drag.mode === 'w' && (s = near(x, L.xs, 1.6)) !== null) { w += x - s; x = s; gx.push(s); }
+        w = Math.max(30, Math.min(PG.w - x, w)); x = Math.max(0, x);
+        fEl.style.left = x + 'mm'; fEl.style.width = w + 'mm';
+        drag.res = { x, w };
+        guides(pg, gx, []);
+      }
+    });
+    const end = () => {
+      if (!drag) return;
+      const d = drag; drag = null;
+      stage.querySelectorAll('.rguide').forEach(g => g.remove());
+      if (!d.moved) { stage.querySelectorAll('.rtool').forEach(t => { t.style.visibility = ''; }); return; }
+      const cfg = fr(d.id);
+      if (d.res) Object.keys(d.res).forEach(k => { cfg[k] = Math.round(d.res[k] * 10) / 10; });
+      commit();
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+    el.addEventListener('dblclick', e => {
+      const frame = e.target.closest('.rframe');
+      if (!frame) return;
+      const b = blocks.find(x => x.id === frame.dataset.id);
+      if (b && b.fig === undefined) openEdit(frame.dataset.id);
+    });
+    el.addEventListener('click', e => {
+      const btn = e.target.closest('.rtool button');
+      if (btn) toolAction(btn.dataset.t, btn);
+    });
+    document.addEventListener('keydown', e => {
+      if (!stage || !sel || editing || !stage.isConnected || !stage.offsetParent) return;
+      if (/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) return;
+      const cfg = fr(sel);
+      const step = e.shiftKey ? 5 : 1;
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); removeFrame(sel); }
+      else if (e.key === 'Escape') select(null);
+      else if (e.key.startsWith('Arrow')) {
+        e.preventDefault();
+        if (e.key === 'ArrowLeft') cfg.x -= step; if (e.key === 'ArrowRight') cfg.x += step;
+        if (e.key === 'ArrowUp') cfg.y -= step; if (e.key === 'ArrowDown') cfg.y += step;
+        commit();
+      }
+    });
+  }
+
+  /* ================================================================== */
+  /* Side panel                                                          */
+  /* ================================================================== */
+  function panelHTML() {
+    if (!blocks.length && A.result()) built = content(), blocks = built.blocks;
+    const R = rep();
+    const list = blocks.map(b => {
+      const cfg = fr(b.id);
+      const name = b.custom ? (cfg.title || 'Text') : b.name;
+      return `<div class="rel${cfg.hidden ? ' off' : ''}${sel === b.id ? ' on' : ''}" data-id="${b.id}">
+        <input type="checkbox" data-r="vis" ${cfg.hidden ? '' : 'checked'} title="Show in the report">
+        <span class="rel-n" data-r="go">${esc(name)}${cfg.html !== undefined && !b.custom ? ' <i>edited</i>' : ''}</span>
+        <span class="rel-p">${cfg.hidden ? '' : 'p. ' + ((cfg.p || 0) + 1)}</span>
+        ${b.custom ? '<button class="icon-btn del" data-r="del" title="Delete">✕</button>' : ''}</div>`;
+    }).join('');
+    return `<div class="hint"><b>Click</b> an element on the pages to select it, <b>drag</b> it to move it (also onto another page), <b>drag its side handles</b> to resize it.
+      <b>Double-click</b> to edit a text or a table; <b>Delete</b> removes it from the report. Blue lines show the alignments.</div>
+      <div class="rp-actions"><button class="btn" data-r="text">+ Text</button><button class="btn" data-r="page">+ Page</button><button class="btn" data-r="delpage" ${R.pages > 1 ? '' : 'disabled'}>− Last page</button><button class="btn" data-r="auto">Auto-arrange</button></div>
+      <h3>Elements <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">· ${R.pages} page${R.pages > 1 ? 's' : ''}</span></h3>
+      <div class="rels">${list}</div>
+      <div class="rp-actions"><button class="btn" data-r="reset">Reset the report</button><button class="btn primary" data-r="print">Print / save as PDF</button></div>`;
+  }
+  function panelAction(a, id) {
+    const R = rep();
+    if (a === 'vis') { const cfg = fr(id); if (cfg.hidden) { delete cfg.hidden; delete cfg.x; delete cfg.y; delete cfg.p; } else cfg.hidden = true; }
+    else if (a === 'go') { select(id); const el = stage && stage.querySelector(`.rframe[data-id="${id}"]`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); A.onChange && A.onChange(); return; }
+    else if (a === 'del') { removeFrame(id); return; }
+    else if (a === 'text') { const nid = 'txt-' + Math.random().toString(36).slice(2, 8); R.custom.push({ id: nid, type: 'text' }); sel = nid; }
+    else if (a === 'page') R.pages += 1;
+    else if (a === 'delpage') {
+      const last = R.pages - 1;
+      blocks.forEach(b => { const c = fr(b.id); if (!c.hidden && (c.p || 0) === last) { c.p = Math.max(0, last - 1); } });
+      R.pages = Math.max(1, last);
+    } else if (a === 'auto') {
+      const vis = blocks.filter(b => !fr(b.id).hidden)
+        .sort((x, y) => (fr(x.id).p - fr(y.id).p) || (fr(x.id).y - fr(y.id).y) || (fr(x.id).x - fr(y.id).x));
+      R.pages = 1;
+      autoLayout(vis, false);
+    } else if (a === 'reset') { const s = S(); s.rep = { frames: {}, custom: R.custom, pages: 1 }; }
+    commit();
+  }
+
+  /* ================================================================== */
+  /* Printing                                                            */
+  /* ================================================================== */
+  function buildForPrint(target) {
+    const keepEditing = editing; editing = null;
+    render(target, false);
+    editing = keepEditing;
+  }
+
+  window.CLPReport = {
+    init(api) { A = api; return api; },
+    bind, render, showEditor, hideEditor, panelHTML, panelAction, buildForPrint, select,
+    get selected() { return sel; },
+  };
+})();
+
+</script>
+<script>
 /* Cable Loading Planner — user interface */
 (function () {
   'use strict';
@@ -896,8 +1456,9 @@ body.mode-report .report-stage { display: block; background: #e9eef5; border-rad
     p.carrier.drum.bays.forEach(b => { if (!b.id) b.id = uid(); });
     if (!p.labels || typeof p.labels !== 'object') p.labels = {};
     if (!p.labelScale) p.labelScale = 1;
-    if (!p.report || typeof p.report !== 'object') p.report = {};
-    p.report = Object.assign({ order: [], blocks: {}, custom: [] }, p.report);
+    delete p.report; // layout of the first report editor (replaced)
+    if (!p.rep || typeof p.rep !== 'object') p.rep = {};
+    p.rep = Object.assign({ frames: {}, custom: [], pages: 1 }, p.rep);
     if (p.winding.rotation !== 'ccw') p.winding.rotation = 'cw';
     p.sections.forEach((s, i) => { if (!s.id) s.id = uid(); if (!s.color) s.color = PALETTE[i % PALETTE.length]; });
     return p;
@@ -1095,10 +1656,10 @@ body.mode-report .report-stage { display: block; background: #e9eef5; border-rad
 
   function renderTab() {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === ui.tab));
-    const r = { carrier: renderCarrierTab, cables: renderCablesTab, plan: renderPlanTab, settings: renderSettingsTab, report: renderReportTab }[ui.tab];
+    const r = { carrier: renderCarrierTab, cables: renderCablesTab, plan: renderPlanTab, settings: renderSettingsTab, report: () => '' }[ui.tab];
     $('tabBody').innerHTML = r();
     document.body.classList.toggle('mode-report', ui.tab === 'report');
-    if (ui.tab === 'report') { showReportEditor(); renderReportList(); } else hideReportEditor();
+    if (ui.tab === 'report') showReportEditor(); else hideReportEditor();
     refreshInputMeta();
   }
 
@@ -1189,14 +1750,6 @@ body.mode-report .report-stage { display: block; background: #e9eef5; border-rad
         break;
       }
       case 'rot': state.winding.rotation = b.dataset.value; break;
-      case 'rpText': state.report.custom = (state.report.custom || []).concat([{ id: 'txt-' + uid(), type: 'text' }]); break;
-      case 'rpBreak': state.report.custom = (state.report.custom || []).concat([{ id: 'brk-' + uid(), type: 'break' }]); break;
-      case 'rpPrint': printReport(); return;
-      case 'rpReset':
-        ask('Reset the report layout (order, sizes, hidden blocks, edited contents)? Your text blocks are kept.', () => {
-          state.report.order = []; state.report.blocks = {}; refreshReport();
-        });
-        return;
       case 'delLogo': state.info.logos.splice(i, 1); break;
       case 'logoLeft': if (i > 0) state.info.logos.splice(i - 1, 0, state.info.logos.splice(i, 1)[0]); break;
       case 'logoRight': if (i < state.info.logos.length - 1) state.info.logos.splice(i + 1, 0, state.info.logos.splice(i, 1)[0]); break;
@@ -1274,7 +1827,7 @@ body.mode-report .report-stage { display: block; background: #e9eef5; border-rad
     renderCapTable();
     refreshInputMeta();
     autosave();
-    if (ui.tab === 'report' && !(document.activeElement && $('report').contains(document.activeElement))) { showReportEditor(); renderReportList(); }
+    if (ui.tab === 'report' && !(document.activeElement && $('reportStage').contains(document.activeElement))) showReportEditor();
   }
 
   function renderKPIs() {
@@ -2266,7 +2819,7 @@ body.mode-report .report-stage { display: block; background: #e9eef5; border-rad
   }
 
   window.addEventListener('resize', () => drawCanvas());
-  window.addEventListener('beforeprint', () => { if (Date.now() - reportBuiltAt > 2000) { hideReportEditor(); buildReport(); } });
+  window.addEventListener('beforeprint', () => { if (Date.now() - reportBuiltAt > 2000) buildReport(); });
 
   /* ---------------- legend & gauges ---------------- */
   function renderLegend() {
@@ -2430,381 +2983,37 @@ body.mode-report .report-stage { display: block; background: #e9eef5; border-rad
     });
   }
 
-  function buildReport(opts) {
-    if (!result) return;
-    const i = state.info, c = state.carrier, w = state.winding, t = result.totals;
-    const coil = kind() === 'coil';
-    const typeLabel = (CARRIER_TYPES[c.type] || {}).label || '';
-    const statusTxt = { ok: 'Loading plan OK', warn: 'Loading plan to be checked', fail: 'Loading plan NOT OK' }[t.status];
-    const order = { fail: 0, warn: 1, info: 2, ok: 3 };
-    const checks = result.checks.slice().sort((a, b) => order[a.level] - order[b.level]);
-
-    // drawings
-    const W = 1000;
-    const img1 = renderImage('section', 'all', W, coil ? 560 : 520);
-    const img2 = [];
-    if (coil) img2.push({ src: renderImage('plan', 'all', 720, 520), cap: 'Plan view — top two layers' });
-    else result.compartments.slice(0, 3).forEach(cr => img2.push({ src: renderImage('side', String(cr.comp.index), 420, 420), cap: `Side view from the ${state.winding.startSide === 'right' ? 'right' : 'left'} flange (start side) — ${cr.comp.name}` }));
-
-    const kpi = (k, v, cls) => `<div class="rk ${cls || ''}"><div class="rk-k">${k}</div><div class="rk-v">${v}</div></div>`;
-    let kpis = kpi('Cable loaded', `${fmt(t.length, 0)} m`) + kpi('Cable weight', `${fmt(t.weight, 1)} t`);
-    if (num(c.tare) > 0) kpis += kpi(coil ? 'Total weight (carrier + cable)' : 'Total drum weight (drum + cable)', `${fmt(t.gross, 1)} t`, 'strong');
-    if (t.loadPct !== null) kpis += kpi('Load vs SWL', `${fmt(t.loadPct * 100, 1)} %`, t.loadPct > 1 ? 'bad' : '');
-    const sp = spare();
-    kpis += kpi(sp.byWeight ? 'Spare capacity (by SWL)' : 'Spare capacity', `${fmt(sp.len, 0)} m`);
-    if (t.vcg !== null) kpis += kpi('Cable VCG', `${fmt(t.vcg, 2)} m`);
-
-    const info = [['Client / project', i.client], ['Vessel / site', i.vessel], ['Equipment', `${c.name ? c.name + ' — ' : ''}${typeLabel}`],
-      ['Max. cable load (SWL)', num(c.maxLoad) ? fmt(num(c.maxLoad), 1) + ' t' : '–'], ['Empty weight (tare)', num(c.tare) ? fmt(num(c.tare), 1) + ' t' : '–'],
-      ['Coiling / winding', `${w.stacking === 'nested' ? 'Nested' : 'Square'} stacking · turn gap ${fmt(num(w.turnGapPct), 1)} % OD ${gapMm(w.turnGapPct)} · layer gap ${fmt(num(w.layerGapPct), 1)} % OD ${gapMm(w.layerGapPct)}`]];
-
-    // sections table (compact, portrait)
-    let sec = `<table class="rt"><thead><tr><th>#</th><th>Section / cable</th><th>${coil ? 'Comp.' : 'Bay'}</th><th class="r">Loaded</th><th class="r">Weight</th><th class="r">Top</th><th>Inner end (start)</th><th>Outer end (end)</th><th class="r">Off</th><th>Status</th></tr></thead><tbody>`;
-    result.sections.forEach((sr, k) => {
-      const s = state.sections[k], cr = result.compartments[sr.compIndex], cab = sr.cable;
-      let st = '<span class="rbadge ok">OK</span>';
-      if (sr.placed === undefined || !cr) st = '<span class="rbadge bad">Error</span>';
-      else if (sr.overflow > 0.01) st = `<span class="rbadge bad">Overflow ${fmt(sr.overflow, 0)} m</span>`;
-      else if (cab && num(cab.mbr) > 0 && sr.minRadius < num(cab.mbr)) st = '<span class="rbadge bad">MBR</span>';
-      const off = cr ? cr.sectionIdx.length - cr.sectionIdx.indexOf(k) : '';
-      sec += `<tr><td>${k + 1}</td><td><span class="sw" style="background:${esc(sectionColor(k))}"></span><b>${esc(s.name)}</b><br><span class="mut">${esc(cab ? cab.name : '–')}${cab ? ` · Ø ${fmt(num(cab.od), 0)} mm` : ''}</span></td>
-        <td>${cr ? esc(cr.comp.label.replace('Compartment ', 'C')) : '–'}</td><td class="r">${fmt(sr.placed, 0)} m${sr.requested && Math.abs(sr.requested - sr.placed) > 0.5 ? `<br><span class="mut">of ${fmt(sr.requested, 0)}</span>` : ''}</td><td class="r">${fmt(sr.weight, 1)} t</td><td class="r">${topText(sr)}</td>
-        <td>${cr ? posText(cr, sr.first, false) : '–'}</td><td>${cr ? posText(cr, sr.last, true) : '–'}</td><td class="r">${off ? '#' + off : ''}</td><td>${st}</td></tr>`;
-    });
-    sec += '</tbody></table>';
-
-    // compartments
-    let comp = `<table class="rt"><thead><tr><th>${coil ? 'Compartment' : 'Bay'}</th><th>Geometry</th><th class="r">Loaded</th><th class="r">Weight</th><th class="r">Layers</th><th class="r">Turns / layer</th><th class="r">Stack used</th>${coil ? '<th class="r">VCG</th>' : ''}<th class="r">Spare</th></tr></thead><tbody>`;
-    result.compartments.forEach(cr => {
-      const cc = cr.comp;
-      const geo = coil ? `R ${fmt(cc.acrossMin, 2)}–${fmt(cc.acrossMax, 2)} m · H ${fmt(cc.stackMax, 2)} m` : `W ${fmt(cc.acrossMax - cc.acrossMin, 2)} m · R ${fmt(cc.stackMin, 2)}–${fmt(cc.stackMax, 2)} m`;
-      comp += `<tr><td><b>${esc(cc.label)}</b><br><span class="mut">${esc(cc.name)}</span></td><td>${geo}</td><td class="r">${fmt(cr.length, 0)} m</td><td class="r">${fmt(cr.weight, 1)} t</td><td class="r">${cr.fill.layers}</td><td class="r">${cr.turnsLayer1}</td>
-        <td class="r">${fmt(cr.used, 2)} m · ${fmt(cr.usedPct * 100, 0)} %</td>${coil ? `<td class="r">${cr.vcg === null ? '–' : fmt(cr.vcg, 2) + ' m'}</td>` : ''}<td class="r">${cr.fill.full ? 'full' : fmt(cr.remaining, 0) + ' m'}</td></tr>`;
-    });
-    comp += `<tr class="tot"><td><b>Total</b></td><td></td><td class="r"><b>${fmt(t.length, 0)} m</b></td><td class="r"><b>${fmt(t.weight, 1)} t</b></td><td></td><td></td><td></td>${coil ? `<td class="r">${t.vcg === null ? '–' : fmt(t.vcg, 2) + ' m'}</td>` : ''}<td class="r"><b>${fmt(t.remaining, 0)} m</b></td></tr>`;
-    if (num(c.tare) > 0) comp += `<tr class="tot"><td colspan="3"><b>${coil ? 'Total weight (carrier + cable)' : 'Total drum weight (drum + cable)'}</b></td><td class="r"><b>${fmt(t.gross, 1)} t</b></td><td colspan="${coil ? 5 : 4}" class="mut">tare ${fmt(num(c.tare), 1)} t + cable ${fmt(t.weight, 1)} t</td></tr>`;
-    comp += '</tbody></table>';
-
-    // geometry
-    let geo;
-    if (coil) {
-      geo = '<table class="rt"><thead><tr><th>Ring / cerce</th><th class="r">Inner Ø</th><th class="r">Wall thickness</th><th class="r">Height</th></tr></thead><tbody>' +
-        ringsSorted().map(r => `<tr><td>${esc(r.name)}</td><td class="r">${fmt(num(r.diameter), 2)} m</td><td class="r">${fmt(num(r.thickness), 0)} mm</td><td class="r">${fmt(num(r.height), 2)} m</td></tr>`).join('') +
-        `<tr><td>Freeboard</td><td colspan="3" class="r">${fmt(num(c.freeboard), 2)} m</td></tr></tbody></table>`;
-    } else {
-      const d = c.drum;
-      geo = `<table class="rt"><tbody><tr><td>Barrel Ø</td><td class="r">${fmt(num(d.barrelDiameter), 2)} m</td></tr><tr><td>Flange Ø</td><td class="r">${fmt(num(d.flangeDiameter), 2)} m</td></tr>
-        <tr><td>Flange thickness</td><td class="r">${fmt(num(d.flangeThickness), 0)} mm</td></tr><tr><td>Freeboard</td><td class="r">${fmt(num(d.freeboard), 2)} m</td></tr>` +
-        d.bays.map(b => `<tr><td>${esc(b.name)} — inner width</td><td class="r">${fmt(num(b.width), 2)} m</td></tr>`).join('') + '</tbody></table>';
-    }
-    const cabT = '<table class="rt"><thead><tr><th>Cable</th><th class="r">OD</th><th class="r">Weight</th><th class="r">MBR</th></tr></thead><tbody>' +
-      state.cables.map(cb => `<tr><td>${esc(cb.name)}</td><td class="r">${fmt(num(cb.od), 0)} mm</td><td class="r">${fmt(num(cb.weight), 1)} kg/m</td><td class="r">${fmt(num(cb.mbr), 2)} m</td></tr>`).join('') + '</tbody></table>';
-
-    const capT = `<table class="rt"><thead><tr><th>Cable</th>${result.compartments.map(cr => `<th class="r">${esc(cr.comp.label.replace('Compartment ', 'C'))}</th>`).join('')}<th class="r">By volume</th>${num(c.maxLoad) ? '<th class="r">By weight (SWL)</th>' : ''}<th class="r">Max. loadable</th><th class="r">Working 80 %</th></tr></thead><tbody>` +
-      capRows().map(cp => `<tr><td>${esc(cp.row.cable.name)}</td>${cp.row.caps.map(v => `<td class="r">${fmt(v, 0)} m</td>`).join('')}<td class="r">${fmt(cp.vol, 0)} m</td>${num(c.maxLoad) ? `<td class="r">${fmt(cp.bySwl, 0)} m</td>` : ''}<td class="r"><b>${fmt(cp.max, 0)} m</b><br><span class="mut">by ${cp.byWeight ? 'weight' : 'volume'}</span></td><td class="r">${fmt(cp.working, 0)} m</td></tr>`).join('') +
-      '</tbody></table><p class="mut small">Max. loadable = the smaller of the volume capacity and the length allowed by the SWL.</p>';
-
-    const legend = state.sections.map((s, k) => `<span><i style="background:${esc(sectionColor(k))}"></i>${esc(s.name)}</span>`).join('');
-
-    const docNo = i.reference || '—', rev = i.revision || '0';
-    const equipment = `${c.name ? c.name + ' — ' : ''}${typeLabel}`;
-    const summary = `${fmt(t.length, 0)} m of cable (${fmt(t.weight, 1)} t) in ${state.sections.length} section${state.sections.length > 1 ? 's' : ''}, loaded in ${result.compartments.length} ${coil ? 'compartment' : 'bay'}${result.compartments.length > 1 ? 's' : ''}` +
-      `${t.loadPct !== null ? `, i.e. ${fmt(t.loadPct * 100, 1)} % of the SWL` : ''}. Spare capacity: ${fmt(sp.len, 0)} m${sp.byWeight ? ' (limited by the SWL)' : ''}. Coiling ${w.rotation === 'ccw' ? 'counter-clockwise' : 'clockwise'}.`;
-    const tb = (k, v) => `<td class="tb-k">${esc(k)}</td><td class="tb-v">${esc(v || '—')}</td>`;
-
-    /* ---- the report is a list of blocks; the user arranges them in the Report tab ---- */
-    const defs = [
-      { id: 'head', name: 'Title block (logos, document No.)', html: `<header class="rp-top">
-        <div class="rp-logos">${(i.logos || []).length ? (i.logos || []).map((l, k) => `<span class="rp-logo-c" data-logo="${k}"></span>`).join('') : '<span class="rp-nologo">Cable Loading Planner</span>'}</div>
-        <div class="rp-ttl"><div class="rp-doc-type">Cable loading plan</div><h1>${esc(state.name || 'Untitled project')}</h1><div class="rp-sub">${esc(equipment)}${i.vessel ? ' · ' + esc(i.vessel) : ''}</div></div>
-        <table class="rp-docbox"><tr><td>Document No.</td><td>${esc(docNo)}</td></tr><tr><td>Revision</td><td>${esc(rev)}</td></tr><tr><td>Date</td><td>${esc(i.date || '—')}</td></tr><tr><td>Status</td><td class="st ${t.status}">${t.status === 'ok' ? 'OK' : t.status === 'warn' ? 'TO CHECK' : 'NOT OK'}</td></tr></table></header>` },
-      { id: 'ident', name: 'Identification table', table: true, html: `<table class="rp-tblock">
-        <tr>${tb('Client / project', i.client)}${tb('Vessel / site', i.vessel)}</tr>
-        <tr>${tb('Equipment', equipment)}${tb('Max. cable load (SWL)', num(c.maxLoad) ? fmt(num(c.maxLoad), 1) + ' t' : '')}</tr>
-        <tr>${tb('Empty weight (tare)', num(c.tare) ? fmt(num(c.tare), 1) + ' t' : '')}${tb('Coiling / winding', `${w.stacking === 'nested' ? 'Nested' : 'Square'} · ${w.rotation === 'ccw' ? 'counter-clockwise' : 'clockwise'} · turn gap ${fmt(num(w.turnGapPct), 1)} % OD ${gapMm(w.turnGapPct)}`)}</tr>
-        <tr>${tb('Prepared by', i.preparedBy)}${tb('Checked by', i.checkedBy)}</tr></table>` },
-      { id: 'summary', name: 'Summary', title: 'Summary', html: `<p class="rp-lead">${esc(summary)}</p>` },
-      { id: 'kpis', name: 'Key figures', html: `<section class="rp-kpis">${kpis}</section>` },
-      { id: 'fig1', name: 'Figure — cross-section', title: 'Loading drawings', fig: [0], html: `<figure class="rp-fig"><div class="rp-canvas" data-fig="0"></div><figcaption><b>Figure 1</b> — ${coil ? 'Cross-section through the centre (full diameter)' : 'Cross-section along the drum axis'}. Red dashed line = maximum stack (freeboard limit).</figcaption></figure><div class="rp-legend">${legend}</div>` },
-      { id: 'fig2', name: coil ? 'Figure — plan view' : 'Figure — side views', w: 48, fig: img2.map((im, k) => k + 1), html: `<div class="rp-figs">${img2.map((im, k) => `<figure class="rp-fig small"><div class="rp-canvas" data-fig="${k + 1}"></div><figcaption><b>Figure ${k + 2}</b> — ${esc(im.cap)}</figcaption></figure>`).join('')}</div>` },
-      { id: 'gauges', name: 'Fill per compartment', w: 52, html: `<div class="rp-gauges"><h3>Fill per ${coil ? 'compartment' : 'bay'}</h3>${$('gauges').innerHTML}</div>` },
-      { id: 'sections', name: 'Cable sections table', title: 'Cable sections — start and end positions', table: true, html: sec + `<p class="mut small">Inner end = first end loaded (bottom of the coil / on the barrel). Outer end = last end loaded. "Off" = order in which the sections come off the ${coil ? 'compartment' : 'bay'}. Top = highest point of the section.</p>` },
-      { id: 'comp', name: coil ? 'Compartments table' : 'Bays table', title: coil ? 'Compartments' : 'Bays', table: true, html: comp },
-      { id: 'geom', name: 'Equipment geometry', title: 'Equipment geometry', w: 50, table: true, html: geo },
-      { id: 'cables', name: 'Cables', title: 'Cables', w: 50, table: true, html: cabT },
-      { id: 'capacity', name: 'Maximum capacity', title: 'Maximum capacity (each cable alone, empty equipment)', table: true, html: capT },
-      { id: 'notes', name: 'Assumptions and notes', title: 'Assumptions and notes', html: `<ul class="rp-notes"><li>Turn-by-turn simulation, layers alternate direction; ${w.stacking === 'nested' ? 'nested stacking (layer pitch 0.866 × OD)' : 'square stacking (layer pitch 1.0 × OD)'}, turn gap ${fmt(num(w.turnGapPct), 1)} % of OD ${gapMm(w.turnGapPct)}, layer gap ${fmt(num(w.layerGapPct), 1)} % of OD ${gapMm(w.layerGapPct)}; rotation ${w.rotation === 'ccw' ? 'counter-clockwise' : 'clockwise'} ${coil ? 'seen from above' : 'seen from the start flange'}.</li>
-        <li>Freeboard ${fmt(num(coil ? c.freeboard : c.drum.freeboard), 2)} m kept below the ${coil ? 'top of the walls' : 'flange rim'}. Working capacity taken as ≈ 80 % of the theoretical capacity.</li>
-        <li>Planning aid only: to be checked against the equipment drawings, the cable data sheets and the loading procedure.</li>${i.notes ? `<li>${esc(i.notes)}</li>` : ''}</ul>` },
-      { id: 'conclusion', name: 'Conclusion', title: 'Conclusion', html: `<div class="rp-status ${t.status}"><div class="rp-status-t">${statusTxt}</div>${checks.map(ch => `<div class="ln ${ch.level}">${esc(ch.text)}</div>`).join('')}</div>` },
-      { id: 'revision', name: 'Revision & signatures', table: true, html: `<table class="rp-rev">
-        <thead><tr><th>Rev.</th><th>Date</th><th>Description</th><th>Prepared</th><th>Checked</th><th>Approved</th></tr></thead>
-        <tbody><tr><td>${esc(rev)}</td><td>${esc(i.date || '')}</td><td>${esc(i.revDescription || 'Issued for use')}</td><td>${esc(i.preparedBy || '')}</td><td>${esc(i.checkedBy || '')}</td><td>${esc(i.approvedBy || '')}</td></tr>
-        <tr class="sig"><td colspan="3">Signatures</td><td></td><td></td><td></td></tr></tbody></table>` },
-    ];
-    const blocks = reportBlocks(defs);
-    const editor = !!(opts && opts.editor);
-    let n = 0;
-    const html = blocks.map(b => {
-      const cfg = b.cfg;
-      if (cfg.hidden && !editor) return '';
-      if (b.type === 'break') return editor ? `<div class="rb rb-break${cfg.hidden ? ' rb-hidden' : ''}" data-id="${b.id}" style="width:100%">${tools(b, editor)}<div class="rb-break-line">Page break</div></div>` : '<div class="rb-pagebreak"></div>';
-      const title = b.type === 'text' ? (cfg.title || '') : (cfg.title !== undefined ? cfg.title : (b.title || ''));
-      const num_ = title && !cfg.hidden && cfg.numbered !== false ? `<span>${++n}.</span> ` : '';
-      const h = title || editor && b.title !== undefined ? `<h2 class="rp-h"${title ? '' : ' data-empty="1"'}>${num_}<span class="rb-title"${editor ? ' contenteditable="true" spellcheck="false"' : ''} data-placeholder="Title">${esc(title)}</span></h2>` : '';
-      const body = cfg.html !== undefined ? cfg.html : (b.type === 'text' ? '<p>Type your text here…</p>' : b.html);
-      const editable = editor && (b.type === 'text' || cfg.editing);
-      const style = `width:${cfg.w || b.w || 100}%;${cfg.fs ? `font-size:${cfg.fs * 100}%;` : ''}`;
-      return `<div class="rb${cfg.hidden ? ' rb-hidden' : ''}${cfg.html !== undefined && b.type !== 'text' ? ' rb-frozen' : ''}" data-id="${b.id}" style="${style}">
-        ${tools(b, editor)}${h}<div class="rb-body"${editable ? ' contenteditable="true"' : ''}>${body}</div>${editor ? '<span class="rb-resize" title="Drag to resize"></span>' : ''}</div>`;
-    }).join('');
-    const root = $('report');
-    root.classList.toggle('editing', editor);
-    root.innerHTML = `<div class="rp"><div class="rb-flow">${html}</div></div>`;
-    // hidden table columns
-    root.querySelectorAll('.rb').forEach(el => {
-      const cfg = (state.report.blocks || {})[el.dataset.id] || {};
-      el.querySelectorAll('.rb-body table').forEach((tbl, ti) => {
-        const hide = (cfg.hideCols || {})[ti] || [];
-        [...tbl.rows].forEach(row => {
-          let col = 0;
-          [...row.cells].forEach(cell => {
-            const span = cell.colSpan || 1;
-            if (hide.includes(col) && span === 1) cell.classList.add('rb-col-hidden');
-            if (editor && row.parentElement.tagName === 'THEAD' && span === 1) { cell.dataset.col = col; cell.dataset.tbl = ti; }
-            col += span;
-          });
-        });
-        if (editor && hide.length) { const b = document.createElement('button'); b.className = 'rb-showcols'; b.dataset.tbl = ti; b.textContent = `Show ${hide.length} hidden column${hide.length > 1 ? 's' : ''}`; tbl.after(b); }
-      });
-    });
-    const figs = [img1].concat(img2.map(im => im.src));
-    root.querySelectorAll('.rp-canvas').forEach(el => { const cv = figs[+el.dataset.fig]; if (cv) el.appendChild(cv); });
-    root.querySelectorAll('.rp-logo-c').forEach(el => { const cv = logoCanvas((i.logos || [])[+el.dataset.logo]); if (cv) el.appendChild(cv); });
-    // running header / footer on every printed page
-    const pg = $('pageStyle') || document.head.appendChild(Object.assign(document.createElement('style'), { id: 'pageStyle' }));
-    const q = v => '"' + String(v).replace(/["\\]/g, '\\$&').replace(/\n/g, ' ') + '"';
-    pg.textContent = `@media print { @page {
-      @top-left { content: ${q('Cable loading plan — ' + (state.name || ''))}; font: 7.5pt system-ui, sans-serif; color: #5a7391; }
-      @top-right { content: ${q(`${docNo} · Rev. ${rev}`)}; font: 7.5pt system-ui, sans-serif; color: #5a7391; }
-      @bottom-left { content: ${q((i.client ? i.client + ' · ' : '') + 'Cable Loading Planner')}; font: 7.5pt system-ui, sans-serif; color: #8aa1ba; }
-      @bottom-right { content: "Page " counter(page) " / " counter(pages); font: 7.5pt system-ui, sans-serif; color: #8aa1ba; } } }`;
-    reportBuiltAt = editor ? 0 : Date.now();
-    return blocks;
-  }
-
-  /* block list = built-in blocks + the user's text blocks / page breaks, in the user's order */
-  function reportBlocks(defs) {
-    const R = state.report;
-    const all = defs.map(d => Object.assign({ type: 'std' }, d)).concat((R.custom || []).map(cb => ({ id: cb.id, type: cb.type, name: cb.type === 'break' ? 'Page break' : 'Text block', title: '' })));
-    const byId = new Map(all.map(b => [b.id, b]));
-    const order = (R.order || []).filter(id => byId.has(id));
-    all.forEach((b, k) => { if (!order.includes(b.id)) order.splice(Math.min(k, order.length), 0, b.id); });
-    return order.map(id => { const b = byId.get(id); b.cfg = (R.blocks || {})[id] || {}; return b; });
-  }
-
-  function tools(b, editor) {
-    if (!editor) return '';
-    const cfg = b.cfg;
-    const custom = b.type === 'text' || b.type === 'break';
-    return `<div class="rb-tools" contenteditable="false">
-      <span class="rb-grip" draggable="true" title="Drag to move">⠿</span><span class="rb-name">${esc(b.name)}</span>
-      <button data-rb="up" title="Move up">▲</button><button data-rb="down" title="Move down">▼</button>
-      ${b.type === 'break' ? '' : `<button data-rb="w-" title="Narrower">⇤</button><button data-rb="w+" title="Wider">⇥</button><button data-rb="fs-" title="Smaller text">A−</button><button data-rb="fs+" title="Larger text">A+</button>`}
-      ${b.type === 'std' && !b.fig ? `<button data-rb="edit" title="Edit the content directly"${cfg.editing ? ' class="on"' : ''}>✎ Edit</button>` : ''}
-      ${cfg.html !== undefined && b.type === 'std' ? '<button data-rb="revert" title="Back to the calculated content">↺ Live data</button>' : ''}
-      <button data-rb="hide" title="${cfg.hidden ? 'Show in the report' : 'Hide from the report'}">${cfg.hidden ? '👁 Show' : 'Hide'}</button>
-      ${custom ? '<button data-rb="del" title="Delete">✕</button>' : ''}</div>`;
-  }
-
   /* ================================================================== */
-  /* Report tab: live A4 preview the user arranges                       */
+  /* Report — free page layout (js/report.js)                            */
   /* ================================================================== */
-  let lastBlocks = [];
-  const W_STEPS = [25, 33, 40, 50, 60, 66, 75, 100];
-  function rcfg(id) { state.report.blocks = state.report.blocks || {}; return (state.report.blocks[id] = state.report.blocks[id] || {}); }
-  function cleanCfg(id) { const c = state.report.blocks[id]; if (c && !Object.keys(c).some(k => c[k] !== undefined)) delete state.report.blocks[id]; }
-  function curOrder() { return lastBlocks.map(b => b.id); }
-
-  function showReportEditor() {
-    const stage = $('reportStage');
-    if ($('report').parentElement !== stage) stage.appendChild($('report'));
-    lastBlocks = buildReport({ editor: true }) || [];
-  }
-  function hideReportEditor() {
-    if ($('report').parentElement !== document.body) document.body.appendChild($('report'));
-    $('report').classList.remove('editing');
-  }
-  function refreshReport() { autosave(); if (ui.tab === 'report') { showReportEditor(); renderReportList(); } }
-
-  function renderReportTab() {
-    return `<div class="hint">The report is made of <b>blocks</b>. In the A4 preview: <b>⠿ drag</b> to move a block, <b>⇤ ⇥</b> or the <b>corner handle</b> to resize it, <b>A− A+</b> for its text size,
-      <b>✎ Edit</b> to change its content (texts, table cells), click a <b>column header</b> to hide the column, click a <b>title</b> to rename it, <b>Hide</b> to leave it out of the report.</div>
-      <div class="rp-actions"><button class="btn" data-action="rpText">+ Text block</button><button class="btn" data-action="rpBreak">+ Page break</button></div>
-      <h3>Blocks (in report order)</h3><div id="rpList"></div>
-      <div class="rp-actions"><button class="btn" data-action="rpReset">Reset the layout</button><button class="btn primary" data-action="rpPrint">Print / save as PDF</button></div>`;
-  }
-  function renderReportList() {
-    const el = $('rpList');
-    if (!el) return;
-    el.innerHTML = lastBlocks.map((b, k) => {
-      const cfg = b.cfg || {};
-      const w = cfg.w || b.w || 100;
-      return `<div class="rpl${cfg.hidden ? ' off' : ''}" data-id="${b.id}">
-        <input type="checkbox" data-rpl="vis" ${cfg.hidden ? '' : 'checked'} title="Show in the report">
-        <span class="rpl-name">${esc(b.type === 'text' ? (cfg.title || 'Text block') : (cfg.title || b.name))}${cfg.html !== undefined && b.type === 'std' ? ' <i>edited</i>' : ''}</span>
-        ${b.type === 'break' ? '' : `<select data-rpl="w" title="Width">${W_STEPS.map(x => `<option value="${x}"${x === w ? ' selected' : ''}>${x} %</option>`).join('')}${W_STEPS.includes(w) ? '' : `<option selected>${w} %</option>`}</select>`}
-        <button class="icon-btn" data-rpl="up" ${k === 0 ? 'disabled' : ''}>▲</button><button class="icon-btn" data-rpl="down" ${k === lastBlocks.length - 1 ? 'disabled' : ''}>▼</button>
-        ${b.type !== 'std' ? '<button class="icon-btn del" data-rpl="del">✕</button>' : ''}</div>`;
-    }).join('');
-  }
-
-  function moveBlock(id, delta) {
-    const o = curOrder(), k = o.indexOf(id), j = k + delta;
-    if (k < 0 || j < 0 || j >= o.length) return;
-    o.splice(j, 0, o.splice(k, 1)[0]);
-    state.report.order = o;
-  }
-  function blockAction(id, a) {
-    const b = lastBlocks.find(x => x.id === id);
-    if (!b) return;
-    const cfg = rcfg(id);
-    if (a === 'up') moveBlock(id, -1);
-    else if (a === 'down') moveBlock(id, 1);
-    else if (a === 'w-' || a === 'w+') {
-      const cur = cfg.w || b.w || 100;
-      const next = a === 'w+' ? W_STEPS.find(x => x > cur) || 100 : [...W_STEPS].reverse().find(x => x < cur) || 25;
-      cfg.w = next;
-    } else if (a === 'fs-' || a === 'fs+') {
-      cfg.fs = Math.round(Math.max(0.6, Math.min(1.8, (cfg.fs || 1) + (a === 'fs+' ? 0.1 : -0.1))) * 10) / 10;
-      if (cfg.fs === 1) delete cfg.fs;
-    } else if (a === 'edit') cfg.editing = !cfg.editing || undefined;
-    else if (a === 'revert') { delete cfg.html; delete cfg.editing; delete cfg.hideCols; }
-    else if (a === 'hide' || a === 'vis') cfg.hidden = !cfg.hidden || undefined;
-    else if (a === 'del') {
-      state.report.custom = (state.report.custom || []).filter(x => x.id !== id);
-      state.report.order = curOrder().filter(x => x !== id);
-      delete state.report.blocks[id];
-    }
-    cleanCfg(id);
-    refreshReport();
-  }
-
-  // ---- interactions on the preview ----
-  const rep = $('report');
-  rep.addEventListener('click', e => {
-    if (!rep.classList.contains('editing')) return;
-    const btn = e.target.closest('[data-rb]');
-    if (btn) { e.preventDefault(); blockAction(btn.closest('.rb').dataset.id, btn.dataset.rb); return; }
-    const sc = e.target.closest('.rb-showcols');
-    if (sc) { const id = sc.closest('.rb').dataset.id; const cfg = rcfg(id); if (cfg.hideCols) delete cfg.hideCols[sc.dataset.tbl]; if (cfg.hideCols && !Object.keys(cfg.hideCols).length) delete cfg.hideCols; cleanCfg(id); refreshReport(); return; }
-    const th = e.target.closest('th[data-col]');
-    if (th && !th.closest('[contenteditable="true"]')) {   // hide a table column
-      const id = th.closest('.rb').dataset.id, cfg = rcfg(id);
-      cfg.hideCols = cfg.hideCols || {};
-      const list = cfg.hideCols[th.dataset.tbl] = cfg.hideCols[th.dataset.tbl] || [];
-      if (!list.includes(+th.dataset.col)) list.push(+th.dataset.col);
-      refreshReport();
-    }
+  const RPT = window.CLPReport;
+  RPT.init({
+    state: () => state, result: () => result, kind, CARRIER_TYPES, esc, fmt, num, renderImage, sectionColor,
+    posText, topText, capRows, gapMm, ringsSorted, logoCanvas,
+    save: () => { autosave(); reportBuiltAt = 0; },
+    onSelect: () => refreshPanel(),
+    onChange: () => refreshPanel(),
   });
-  rep.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('rb-title')) { e.preventDefault(); e.target.blur(); }
-  });
-  rep.addEventListener('focusout', e => {
-    if (!rep.classList.contains('editing')) return;
-    const el = e.target;
-    const blk = el.closest && el.closest('.rb');
-    if (!blk) return;
-    const id = blk.dataset.id, b = lastBlocks.find(x => x.id === id);
-    if (!b) return;
-    if (el.classList.contains('rb-title')) {
-      const v = el.textContent.trim();
-      const cfg = rcfg(id);
-      if (b.type === 'std' && v === (b.title || '')) delete cfg.title; else cfg.title = v;
-      cleanCfg(id);
-      setTimeout(refreshReport, 0);
-    } else if (el.classList.contains('rb-body') && el.isContentEditable) {
-      rcfg(id).html = el.innerHTML;       // edited content is kept as typed (frozen); "↺ Live data" brings back the calculated content
-      autosave(); renderReportList();
-    }
-  });
-
-  // resize with the corner handle (width in % of the page, snapped to 5 %)
-  let rsz = null;
-  rep.addEventListener('pointerdown', e => {
-    const hnd = e.target.closest('.rb-resize');
-    if (!hnd) return;
-    e.preventDefault();
-    const blk = hnd.closest('.rb'), flow = blk.parentElement;
-    rsz = { blk, id: blk.dataset.id, x0: e.clientX, w0: blk.getBoundingClientRect().width, W: flow.getBoundingClientRect().width };
-    hnd.setPointerCapture(e.pointerId);
-  });
-  rep.addEventListener('pointermove', e => {
-    if (!rsz) return;
-    const pct = Math.max(20, Math.min(100, Math.round((rsz.w0 + e.clientX - rsz.x0) / rsz.W * 100 / 5) * 5));
-    rsz.pct = pct; rsz.blk.style.width = pct + '%';
-  });
-  rep.addEventListener('pointerup', () => {
-    if (!rsz) return;
-    if (rsz.pct) rcfg(rsz.id).w = rsz.pct;
-    rsz = null; refreshReport();
-  });
-
-  // drag & drop to reorder
-  let dragId = null;
-  rep.addEventListener('dragstart', e => {
-    const g = e.target.closest && e.target.closest('.rb-grip');
-    if (!g) return;
-    dragId = g.closest('.rb').dataset.id;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', dragId);
-    g.closest('.rb').classList.add('rb-dragging');
-  });
-  const dropPos = (blk, e) => {
-    const r = blk.getBoundingClientRect();
-    return blk.style.width && parseFloat(blk.style.width) < 95 ? (e.clientX < r.left + r.width / 2 ? 'before' : 'after') : (e.clientY < r.top + r.height / 2 ? 'before' : 'after');
-  };
-  rep.addEventListener('dragover', e => {
-    if (!dragId) return;
-    const blk = e.target.closest('.rb');
-    if (!blk || blk.dataset.id === dragId) return;
-    e.preventDefault();
-    rep.querySelectorAll('.rb-drop-before,.rb-drop-after').forEach(x => x.classList.remove('rb-drop-before', 'rb-drop-after'));
-    blk.classList.add('rb-drop-' + dropPos(blk, e));
-  });
-  rep.addEventListener('drop', e => {
-    if (!dragId) return;
-    e.preventDefault();
-    const blk = e.target.closest('.rb');
-    if (blk && blk.dataset.id !== dragId) {
-      const o = curOrder().filter(x => x !== dragId);
-      const k = o.indexOf(blk.dataset.id);
-      o.splice(dropPos(blk, e) === 'before' ? k : k + 1, 0, dragId);
-      state.report.order = o;
-    }
-    dragId = null;
-    refreshReport();
-  });
-  rep.addEventListener('dragend', () => { dragId = null; rep.querySelectorAll('.rb-dragging,.rb-drop-before,.rb-drop-after').forEach(x => x.classList.remove('rb-dragging', 'rb-drop-before', 'rb-drop-after')); });
-
-  // left panel list
-  $('tabBody').addEventListener('change', e => {
-    const row = e.target.closest('.rpl');
-    if (!row) return;
-    if (e.target.dataset.rpl === 'vis') blockAction(row.dataset.id, 'vis');
-    else if (e.target.dataset.rpl === 'w') { rcfg(row.dataset.id).w = parseInt(e.target.value, 10); refreshReport(); }
-  });
+  RPT.bind($('reportStage'));
+  function refreshPanel() { if (ui.tab === 'report') $('tabBody').innerHTML = RPT.panelHTML(); }
+  function showReportEditor() { RPT.showEditor($('reportStage')); refreshPanel(); }
+  function hideReportEditor() { RPT.hideEditor(); }
+  function buildReport() { RPT.buildForPrint($('report')); reportBuiltAt = Date.now(); }
+  function printReport() { buildReport(); requestAnimationFrame(() => requestAnimationFrame(() => window.print())); }
   $('tabBody').addEventListener('click', e => {
-    const b = e.target.closest('[data-rpl]');
-    if (b && b.tagName === 'BUTTON') blockAction(b.closest('.rpl').dataset.id, b.dataset.rpl);
+    if (ui.tab !== 'report') return;
+    const b = e.target.closest('[data-r]');
+    if (!b || b.dataset.r === 'vis') return;
+    if (b.dataset.r === 'print') { printReport(); return; }
+    if (b.dataset.r === 'reset') { ask('Reset the report layout? Positions, sizes, hidden elements and edited texts are cleared.', () => RPT.panelAction('reset')); return; }
+    const row = b.closest('.rel');
+    RPT.panelAction(b.dataset.r, row && row.dataset.id);
   });
-
-  function printReport() {
-    hideReportEditor();
-    buildReport();
-    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
-  }
-  window.addEventListener('afterprint', () => { if (ui.tab === 'report') showReportEditor(); });
+  $('tabBody').addEventListener('change', e => {
+    if (ui.tab !== 'report') return;
+    const b = e.target.closest('[data-r="vis"]');
+    if (b) RPT.panelAction('vis', b.closest('.rel').dataset.id);
+  });
 
   function ask(msg, onYes) {
     const box = document.createElement('div');
