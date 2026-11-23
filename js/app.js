@@ -119,6 +119,7 @@
   }
   function autosave() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable */ } }
 
+  let reportBuiltAt = 0;
   let state = loadAutosave() || normalise(EXAMPLES.turntable());
   const ui = { tab: 'carrier', view: 'section', zoom: 'all', labels: true };
   let result = null, comps = [], capMatrix = [];
@@ -427,6 +428,7 @@
   /* Results                                                             */
   /* ================================================================== */
   function update() {
+    reportBuiltAt = 0; // the project changed: the report must be rebuilt before printing
     comps = compartments(state.carrier);
     const nComp = comps.length;
     state.sections.forEach(s => { if ((s.compartment | 0) >= nComp) s.compartment = Math.max(0, nComp - 1); });
@@ -1176,7 +1178,7 @@
     const out = document.createElement('canvas');
     out.width = c.width; out.height = bot - top + 1;
     out.getContext('2d').drawImage(c, 0, top, c.width, out.height, 0, 0, c.width, out.height);
-    return out.toDataURL('image/png');
+    return out; // a canvas: already drawn, so it always prints (an <img> may not be decoded in time)
   }
 
   /* ---------------- tooltip & on-drawing editing ---------------- */
@@ -1434,7 +1436,7 @@
   }
 
   window.addEventListener('resize', () => drawCanvas());
-  window.addEventListener('beforeprint', () => buildReport());
+  window.addEventListener('beforeprint', () => { if (Date.now() - reportBuiltAt > 2000) buildReport(); });
 
   /* ---------------- legend & gauges ---------------- */
   function renderLegend() {
@@ -1642,10 +1644,10 @@
       </header>
       <table class="rp-info rp-info-full">${info.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1] || '–')}</td></tr>`).join('')}</table>
       <section class="rp-kpis">${kpis}</section>
-      <figure class="rp-fig"><img src="${img1}" alt=""><figcaption>Figure 1 — ${coil ? 'Cross-section through the centre (full diameter)' : 'Cross-section along the drum axis'}. Red dashed line = freeboard limit.</figcaption></figure>
+      <figure class="rp-fig"><div class="rp-canvas" data-fig="0"></div><figcaption>Figure 1 — ${coil ? 'Cross-section through the centre (full diameter)' : 'Cross-section along the drum axis'}. Red dashed line = freeboard limit.</figcaption></figure>
       <div class="rp-legend">${legend}</div>
       <section class="rp-two">
-        <div class="rp-figs">${img2.map((im, k) => `<figure class="rp-fig small"><img src="${im.src}" alt=""><figcaption>Figure ${k + 2} — ${esc(im.cap)}</figcaption></figure>`).join('')}</div>
+        <div class="rp-figs">${img2.map((im, k) => `<figure class="rp-fig small"><div class="rp-canvas" data-fig="${k + 1}"></div><figcaption>Figure ${k + 2} — ${esc(im.cap)}</figcaption></figure>`).join('')}</div>
         <div class="rp-gauges"><h2>Fill per ${coil ? 'compartment' : 'bay'}</h2>${$('gauges').innerHTML}</div>
       </section>
       <h2 class="rp-h">1. Cable sections — start and end positions</h2>${sec}
@@ -1661,6 +1663,9 @@
       <div class="rp-status ${t.status}"><div class="rp-status-t">${statusTxt}</div>${checks.map(ch => `<div class="ln ${ch.level}">${esc(ch.text)}</div>`).join('')}</div>
       <table class="rp-sign"><tr><th></th><th>Name</th><th>Date</th><th>Signature</th></tr><tr><td>Prepared</td><td>${esc(i.preparedBy)}</td><td>${esc(i.date)}</td><td></td></tr><tr><td>Checked</td><td></td><td></td><td></td></tr><tr><td>Approved</td><td></td><td></td><td></td></tr></table>
     </div>`;
+    const figs = [img1].concat(img2.map(im => im.src));
+    $('report').querySelectorAll('.rp-canvas').forEach(el => { const c = figs[+el.dataset.fig]; if (c) el.appendChild(c); });
+    reportBuiltAt = Date.now();
   }
 
   function ask(msg, onYes) {
@@ -1718,7 +1723,7 @@
     rd.readAsText(f);
     e.target.value = '';
   });
-  $('btnPrint').addEventListener('click', () => { buildReport(); window.print(); });
+  $('btnPrint').addEventListener('click', () => { buildReport(); requestAnimationFrame(() => requestAnimationFrame(() => window.print())); });
 
   update();
   renderTab();

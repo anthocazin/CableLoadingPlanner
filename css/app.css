@@ -247,7 +247,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
 .rk-k { font-size: 6.8pt; text-transform: uppercase; letter-spacing: .05em; color: #5a7391; }
 .rk-v { font-size: 11.5pt; font-weight: 800; color: #0b3a75; font-variant-numeric: tabular-nums; }
 .rp-fig { margin: 0; border: 1px solid #d6e0ec; border-radius: 5px; padding: 4px; break-inside: avoid; }
-.rp-fig img { width: 100%; display: block; }
+.rp-fig img, .rp-fig canvas { width: 100%; height: auto; display: block; }
 .rp-fig figcaption { font-size: 7.3pt; color: #5a7391; padding: 3px 2px 0; }
 .rp-legend { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 7.5pt; margin: 5px 0 8px; }
 .rp-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
