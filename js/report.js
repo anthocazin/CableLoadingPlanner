@@ -158,7 +158,7 @@
     const R = rep();
     const visible = blocks.filter(b => !fr(b.id).hidden);
     // place what has never been placed (new blocks, first use)
-    if (visible.some(b => fr(b.id).x === undefined)) autoLayout(visible.filter(b => fr(b.id).x === undefined), true);
+    if (visible.some(b => fr(b.id).x === undefined)) { autoLayout(visible.filter(b => fr(b.id).x === undefined), true); if (editor) A.save(); }
     const maxP = Math.max(0, ...visible.map(b => fr(b.id).p || 0));
     R.pages = Math.max(R.pages, maxP + 1);
     // numbering in reading order
@@ -188,7 +188,28 @@
       hideCols(el, fr(el.dataset.id).cols || []);
     });
     target.querySelectorAll('.rf-logo').forEach(el => { const cv = A.logoCanvas((S().info.logos || [])[+el.dataset.logo]); if (cv) el.appendChild(cv); });
+    makeRoom(target, editor);
     if (editor) decorate(target);
+  }
+  /* an element whose content grew must not cover the element below it: push the lower one down */
+  function makeRoom(root, persist) {
+    let changed = false;
+    root.querySelectorAll('.rpage').forEach(pg => {
+      const fs = [...pg.querySelectorAll('.rframe')].sort((a, b) => a.offsetTop - b.offsetTop);
+      fs.forEach((f, i) => {
+        for (let j = 0; j < i; j++) {
+          const a = fs[j];
+          const ox = Math.min(a.offsetLeft + a.offsetWidth, f.offsetLeft + f.offsetWidth) - Math.max(a.offsetLeft, f.offsetLeft);
+          const bottom = a.offsetTop + a.offsetHeight + GAP * MM;
+          if (ox > 2 * MM && f.offsetTop >= a.offsetTop + MM && f.offsetTop < bottom - 1) {
+            f.style.top = bottom / MM + 'mm';
+            const cfg = fr(f.dataset.id);
+            cfg.y = Math.round(bottom / MM * 10) / 10; changed = true;
+          }
+        }
+      });
+    });
+    if (changed && persist) A.save();
   }
   function cloneCanvas(src) { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; c.getContext('2d').drawImage(src, 0, 0); return c; }
   function hideCols(el, cols) {
@@ -210,6 +231,7 @@
       el.style.cssText = `position:relative;left:0;top:0;width:${cfg.w || b.w}mm;font-size:${(cfg.fs || 1) * 100}%`;
       el.innerHTML = frameHTML(b, cfg, '0.');
       el.querySelectorAll('.rt-canvas').forEach(c => { const fg = built.figs[+c.dataset.fig]; if (fg) { const cv = document.createElement('canvas'); cv.width = fg.cv.width; cv.height = fg.cv.height; c.appendChild(cv); } });
+      el.querySelectorAll('.rf-logo').forEach(c => { const cv = A.logoCanvas((S().info.logos || [])[+c.dataset.logo]); if (cv) c.appendChild(cv); });
       m.appendChild(el);
       out[b.id] = el.getBoundingClientRect().height / MM;
     });

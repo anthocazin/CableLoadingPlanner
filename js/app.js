@@ -692,8 +692,13 @@
     const txt = `${sg > 0 ? '↻' : '↺'} ${text} (${sg > 0 ? 'clockwise' : 'counter-clockwise'})`;
     if (outside) { // label just past the arrow head, outside the drawing
       const ex = cx + ra * Math.cos(a1), ey = cy + ra * Math.sin(a1);
+      // beside the arrow head when there is room, otherwise in the free corner above it (never over the drawing)
       label({ id, style: 'text', ax: ex, ay: ey, text: txt, font: '600 11px ' + FONT, textColor: '#0b3a75', leader: 'moved',
-        pos: (w, h) => [sg > 0 ? ex + 14 : ex - 14 - w, ey + 4] });
+        pos: (w, h) => {
+          const x = sg > 0 ? ex + 14 : ex - 14 - w;
+          if (x >= 4 && x + w <= CW - 4) return [x, ey + 4];
+          return [sg > 0 ? CW - w - 6 : 6, 24];
+        } });
       return;
     }
     const tx = cx + ra * Math.cos(-Math.PI / 2 + sg * 0.8), ty = cy + ra * Math.sin(-Math.PI / 2 + sg * 0.8);
