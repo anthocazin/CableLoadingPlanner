@@ -1,7 +1,8 @@
 name: Publish to GitHub Pages
 
 # Publishes the application on GitHub Pages on every push to main.
-# Enable: Settings → Pages → Source = "GitHub Actions".
+# Two jobs (build, then deploy) as recommended by GitHub: the deploy job starts only once the
+# site artifact is fully registered, which avoids "No artifacts named github-pages were found".
 
 on:
   push:
@@ -15,14 +16,11 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,5 +37,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
