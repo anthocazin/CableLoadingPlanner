@@ -17,7 +17,8 @@
     { name: 'Outer wall', diameter: 30, thickness: 25, height: 6.5 },
   ];
   const defaultDrum = () => ({ barrelDiameter: 2.8, flangeDiameter: 4.6, flangeThickness: 40, freeboard: 0.1, bays: [{ name: 'Bay 1', width: 1.4 }] });
-  const info = () => ({ client: '', vessel: '', preparedBy: '', checkedBy: '', approvedBy: '', date: today(), reference: '', revision: '0', revDescription: 'Issued for use', notes: '', logos: [] });
+  const DEFAULT_LOGO = window.CLP_DEFAULT_LOGO;
+  const info = () => ({ client: '', vessel: '', preparedBy: '', checkedBy: '', approvedBy: '', date: today(), reference: '', revision: '0', revDescription: 'Issued for use', notes: '', logos: DEFAULT_LOGO ? [Object.assign({}, DEFAULT_LOGO)] : [], defaultLogo: true });
 
   const EXAMPLES = {
     turntable: () => ({
@@ -82,7 +83,10 @@
     const schema = p ? (p.schema || 1) : 3; // 1: thickness mm, gaps mm · 2: thickness m, gaps mm · 3: thickness mm, gaps % OD
     p = Object.assign(base, p || {});
     p.schema = 3;
+    const logoApplied = !!(p.info && p.info.defaultLogo);
     p.info = Object.assign(info(), p.info || {});
+    // the company logo is added once to projects saved before it existed (it can then be removed freely)
+    if (!logoApplied) { p.info.defaultLogo = true; if (DEFAULT_LOGO && !(p.info.logos || []).length) p.info.logos = [Object.assign({}, DEFAULT_LOGO)]; }
     p.carrier = Object.assign(emptyProject().carrier, p.carrier || {});
     if (!Array.isArray(p.carrier.rings) || p.carrier.rings.length < 2) p.carrier.rings = defaultRings();
     p.carrier.drum = Object.assign(defaultDrum(), p.carrier.drum || {});
@@ -527,7 +531,7 @@
   const mainCtx = canvas.getContext('2d');
   let ctx = mainCtx;
   let CW = 0, CH = 0, printing = false;
-  let hit = { mode: null, items: [], labels: [], hidden: 0, handles: [], view: null };
+  let hit = { mode: null, items: [], labels: [], boxes: [], hidden: 0, handles: [], view: null };
   let frozen = null; // drawing scale kept still while a wall is dragged
   const r2 = v => Math.round(v * 100) / 100;
   const tOf = r => Math.max(num(r.thickness) / 1000, 0);
@@ -578,7 +582,7 @@
         ctx.fillText(fmt(Math.abs(x) < 1e-9 ? 0 : x, xs < 0.1 ? 2 : xs < 1 ? 1 : 0), px, yb + 6);
       }
       ctx.textBaseline = 'bottom';
-      ctx.fillText(xLabel, (v.X(w.x0) + v.X(w.x1)) / 2, CH - 2);
+      ctx.textBaseline = 'top'; ctx.fillText(xLabel, (v.X(w.x0) + v.X(w.x1)) / 2, Math.min(CH - 14, yb + 22)); // right under the scale
     }
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     for (let y = Math.ceil(w.y0 / ys) * ys; y <= (opts.yMax !== undefined ? opts.yMax : w.y1) + 1e-9; y += ys) {
@@ -654,8 +658,21 @@
     const moved = cfg.dx !== undefined;
     if (moved) { x = L.ax + cfg.dx; y = L.ay + cfg.dy; }
     x = Math.max(2, Math.min(CW - w - 2, x)); y = Math.max(2, Math.min(CH - h - 2, y));
+    // labels never cover each other: a label left at its default place moves to the nearest free spot
+    const hits = (bx, by) => hit.boxes.some(r => bx < r.x + r.w + 3 && bx + w + 3 > r.x && by < r.y + r.h + 2 && by + h + 2 > r.y);
+    if (!moved && hits(x, y)) {
+      const x0 = x, y0 = y;
+      for (let k = 1; k <= 14; k++) {
+        const c = [[x0, y0 - k * (h + 3)], [x0, y0 + k * (h + 3)], [x0 + k * 14, y0], [x0 - k * 14, y0]]
+          .map(([cx, cy]) => [Math.max(2, Math.min(CW - w - 2, cx)), Math.max(2, Math.min(CH - h - 2, cy))])
+          .find(([cx, cy]) => !hits(cx, cy));
+        if (c) { [x, y] = c; break; }
+      }
+    }
+    hit.boxes.push({ x, y, w, h });
+    const leaderAlways = L.leader === 'always' || (!moved && (Math.abs(x - (L.pos(w, h)[0])) > 1 || Math.abs(y - L.pos(w, h)[1]) > 1));
     // leader line to the element described
-    if (L.leader === 'always' || moved) {
+    if (leaderAlways || moved) {
       const tx = Math.max(x, Math.min(x + w, L.ax)), ty = Math.max(y, Math.min(y + h, L.ay));
       if (Math.hypot(tx - L.ax, ty - L.ay) > 3) {
         const col = style === 'top' ? L.color : style === 'marker' ? INK : DIM;
@@ -1169,10 +1186,11 @@
     const W = canvas.clientWidth, H = canvas.clientHeight;
     if (!W || !H) return;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    lastSize = [W, H];
     ctx = mainCtx; CW = W; CH = H;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    hit = { mode: null, items: [], labels: [], hidden: 0, handles: [], view: null };
+    hit = { mode: null, items: [], labels: [], boxes: [], hidden: 0, handles: [], view: null };
     drawView(W, H);
     const custom = state.labels && state.labels[viewKey()];
     $('labelTools').innerHTML = (hit.hidden ? `<button class="btn small" data-lt="show">Show hidden labels (${hit.hidden})</button>` : '') +
@@ -1186,30 +1204,36 @@
   });
 
   /* off-screen rendering for the report (PNG data URL) */
+  let lastSize = [1000, 540]; // size of the drawing on screen: the report reuses it so labels sit exactly where the user put them
   function renderImage(view, zoom, W, H) {
+    W = W || lastSize[0]; H = H || lastSize[1];
     const c = document.createElement('canvas');
     const sc = 2.5;
     c.width = Math.round(W * sc); c.height = Math.round(H * sc);
     const saved = { ctx, CW, CH, hit, view: ui.view, zoom: ui.zoom, labels: ui.labels };
     ctx = c.getContext('2d'); ctx.setTransform(sc, 0, 0, sc, 0, 0);
-    CW = W; CH = H; printing = true; ui.view = view; ui.zoom = zoom; ui.labels = true;
-    hit = { mode: null, items: [], labels: [], hidden: 0, handles: [], view: null };
+    CW = W; CH = H; printing = true; ui.view = view; ui.zoom = zoom;
+    hit = { mode: null, items: [], labels: [], boxes: [], hidden: 0, handles: [], view: null };
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
     try { drawView(W, H); } finally {
       ctx = saved.ctx; CW = saved.CW; CH = saved.CH; hit = saved.hit; ui.view = saved.view; ui.zoom = saved.zoom; ui.labels = saved.labels; printing = false;
     }
-    // trim empty white bands above and below the drawing
+    // trim the empty white margins around the drawing
     const g = c.getContext('2d');
     const img = g.getImageData(0, 0, c.width, c.height).data;
-    const rowBlank = y => { for (let x = 0; x < c.width; x += 3) { const k = (y * c.width + x) * 4; if (img[k] < 245 || img[k + 1] < 245 || img[k + 2] < 245) return false; } return true; };
-    let top = 0, bot = c.height - 1;
+    const ink = k => img[k] < 245 || img[k + 1] < 245 || img[k + 2] < 245;
+    const rowBlank = y => { for (let x = 0; x < c.width; x += 3) if (ink((y * c.width + x) * 4)) return false; return true; };
+    const colBlank = x => { for (let y = 0; y < c.height; y += 3) if (ink((y * c.width + x) * 4)) return false; return true; };
+    let top = 0, bot = c.height - 1, lft = 0, rgt = c.width - 1;
     while (top < bot && rowBlank(top)) top++;
     while (bot > top && rowBlank(bot)) bot--;
+    while (lft < rgt && colBlank(lft)) lft++;
+    while (rgt > lft && colBlank(rgt)) rgt--;
     const m = Math.round(8 * sc);
-    top = Math.max(0, top - m); bot = Math.min(c.height - 1, bot + m);
+    top = Math.max(0, top - m); bot = Math.min(c.height - 1, bot + m); lft = Math.max(0, lft - m); rgt = Math.min(c.width - 1, rgt + m);
     const out = document.createElement('canvas');
-    out.width = c.width; out.height = bot - top + 1;
-    out.getContext('2d').drawImage(c, 0, top, c.width, out.height, 0, 0, c.width, out.height);
+    out.width = rgt - lft + 1; out.height = bot - top + 1;
+    out.getContext('2d').drawImage(c, lft, top, out.width, out.height, 0, 0, out.width, out.height);
     return out; // a canvas: already drawn, so it always prints (an <img> may not be decoded in time)
   }
 

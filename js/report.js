@@ -14,7 +14,7 @@
   const GAP = 5;
   const HALF = (CW - GAP) / 2;
   let A = null;                                            // API given by the application
-  let blocks = [], built = null, sel = null, editing = null;
+  let blocks = [], built = null, sel = null, editing = null, opts_noresolve = false;
 
   /* ------------------------------------------------------------------ */
   const S = () => A.state();
@@ -46,15 +46,15 @@
 
     // figures (canvases drawn by the application)
     const figs = [];
-    figs.push({ cv: A.renderImage('section', 'all', 820, coil ? 470 : 440), cap: coil ? 'Cross-section through the centre (full diameter). Red dashed line = maximum stack (freeboard limit).' : 'Cross-section along the drum axis. Red dashed line = freeboard limit.' });
-    if (coil) figs.push({ cv: A.renderImage('plan', 'all', 560, 460), cap: `Plan view — top two layers, coiling ${rot} seen from above.` });
-    else res.compartments.slice(0, 3).forEach(cr => figs.push({ cv: A.renderImage('side', String(cr.comp.index), 500, 400), cap: `Side view from the ${w.startSide === 'right' ? 'right' : 'left'} flange (start side) — ${cr.comp.name}.` }));
+    figs.push({ cv: A.renderImage('section', 'all'), cap: coil ? 'Cross-section through the centre (full diameter). Red dashed line = maximum stack (freeboard limit).' : 'Cross-section along the drum axis. Red dashed line = freeboard limit.' });
+    if (coil) figs.push({ cv: A.renderImage('plan', 'all'), cap: `Plan view — top two layers, coiling ${rot} seen from above.` });
+    else res.compartments.slice(0, 3).forEach(cr => figs.push({ cv: A.renderImage('side', String(cr.comp.index)), cap: `Side view from the ${w.startSide === 'right' ? 'right' : 'left'} flange (start side) — ${cr.comp.name}.` }));
 
     const logos = (i.logos || []).map((l, k) => `<span class="rf-logo" data-logo="${k}"></span>`).join('');
     B.push({ id: 'title', name: 'Title block', w: CW, html: `<div class="rt-title">
-      <div class="rt-logos">${logos || '<span class="rt-app">Cable Loading Planner</span>'}</div>
-      <div class="rt-main"><div class="rt-kicker">Cable loading plan</div><div class="rt-h1">${esc(st.name || 'Untitled project')}</div><div class="rt-sub">${esc(equipment)}${i.vessel ? ' · ' + esc(i.vessel) : ''}</div></div>
-      <table class="rt-doc"><tr><th>Document No.</th><td>${esc(docNo)}</td></tr><tr><th>Revision</th><td>${esc(rev)}</td></tr><tr><th>Date</th><td>${esc(i.date || '—')}</td></tr><tr><th>Status</th><td class="st-${t.status}">${status[0]}</td></tr></table></div>` });
+      <div class="rt-top">${logos ? `<div class="rt-logos">${logos}</div>` : ''}
+        <div class="rt-main"><div class="rt-kicker">Cable loading plan</div><div class="rt-h1">${esc(st.name || 'Untitled project')}</div><div class="rt-sub">${esc(equipment)}${i.vessel ? ' · ' + esc(i.vessel) : ''}${i.client ? ' · ' + esc(i.client) : ''}</div></div></div>
+      <div class="rt-strip"><div><span>Document No.</span><b>${esc(docNo)}</b></div><div><span>Revision</span><b>${esc(rev)}</b></div><div><span>Date</span><b>${esc(i.date || '—')}</b></div><div><span>Status</span><b class="st-${t.status}">${status[0]}</b></div></div></div>` });
 
     const kv = (k, v) => `<th>${esc(k)}</th><td>${esc(v || '—')}</td>`;
     B.push({ id: 'ident', name: 'Project information', w: CW, html: `<table class="rt-kv">
@@ -90,7 +90,7 @@
       else if (cab && num(cab.mbr) > 0 && sr.minRadius < num(cab.mbr)) stt = '<span class="bad">MBR</span>';
       const off = cr ? cr.sectionIdx.length - cr.sectionIdx.indexOf(k) : '';
       return `<tr><td>${k + 1}</td><td><i class="sw" style="background:${esc(A.sectionColor(k))}"></i><b>${esc(s.name)}</b><br><span class="mut">${esc(cab ? cab.name : '—')}${cab ? ` · Ø ${fmt(num(cab.od), 0)} mm` : ''}</span></td>
-        <td>${cr ? esc(cr.comp.label.replace('Compartment ', 'C')) : '—'}</td><td class="r">${fmt(sr.placed, 0)} m</td><td class="r">${fmt(sr.weight, 1)} t</td><td class="r">${A.topText(sr)}</td>
+        <td>${cr ? esc(cr.comp.label.replace('Compartment ', 'C')) : '—'}</td><td class="r">${fmt(sr.placed, 0)} m</td><td class="r">${fmt(sr.weight, 1)} t</td><td class="r wrap">${A.topText(sr)}</td>
         <td>${cr ? A.posText(cr, sr.first, false) : '—'}</td><td>${cr ? A.posText(cr, sr.last, true) : '—'}</td><td class="r">${off ? '#' + off : ''}</td><td>${stt}</td></tr>`;
     }).join('');
     B.push({ id: 'sections', name: 'Cable sections', title: 'Cable sections — start and end positions', w: CW, html: `<table class="rt-t"><thead><tr><th>#</th><th>Section / cable</th><th>${coil ? 'Comp.' : 'Bay'}</th><th class="r">Loaded</th><th class="r">Weight</th><th class="r">Top</th><th>Inner end (start)</th><th>Outer end (end)</th><th class="r">Off</th><th>Status</th></tr></thead><tbody>${secRows}</tbody></table>
@@ -188,28 +188,43 @@
       hideCols(el, fr(el.dataset.id).cols || []);
     });
     target.querySelectorAll('.rf-logo').forEach(el => { const cv = A.logoCanvas((S().info.logos || [])[+el.dataset.logo]); if (cv) el.appendChild(cv); });
-    makeRoom(target, editor);
+    if (!opts_noresolve && resolve(target)) { if (editor) A.save(); opts_noresolve = true; render(target, editor); opts_noresolve = false; return; }
     if (editor) decorate(target);
   }
-  /* an element whose content grew must not cover the element below it: push the lower one down */
-  function makeRoom(root, persist) {
+  /* nothing may overlap: elements are taken in reading order; an element that would cover one already placed is
+     pushed just below it, and goes to the next page when it no longer fits. Returns true when something moved. */
+  function resolve(root) {
+    const R = rep();
+    const top = p => (p === 0 ? PG.mt0 : PG.mt);
+    const bottom = PG.h - PG.mb;
+    const H = {};
+    root.querySelectorAll('.rframe').forEach(el => { H[el.dataset.id] = el.offsetHeight / MM; });
+    const vis = blocks.filter(b => !fr(b.id).hidden && H[b.id] !== undefined)
+      .sort((a, b) => ((fr(a.id).p || 0) - (fr(b.id).p || 0)) || (fr(a.id).y - fr(b.id).y) || (fr(a.id).x - fr(b.id).x));
+    const placed = {};
     let changed = false;
-    root.querySelectorAll('.rpage').forEach(pg => {
-      const fs = [...pg.querySelectorAll('.rframe')].sort((a, b) => a.offsetTop - b.offsetTop);
-      fs.forEach((f, i) => {
-        for (let j = 0; j < i; j++) {
-          const a = fs[j];
-          const ox = Math.min(a.offsetLeft + a.offsetWidth, f.offsetLeft + f.offsetWidth) - Math.max(a.offsetLeft, f.offsetLeft);
-          const bottom = a.offsetTop + a.offsetHeight + GAP * MM;
-          if (ox > 2 * MM && f.offsetTop >= a.offsetTop + MM && f.offsetTop < bottom - 1) {
-            f.style.top = bottom / MM + 'mm';
-            const cfg = fr(f.dataset.id);
-            cfg.y = Math.round(bottom / MM * 10) / 10; changed = true;
-          }
+    vis.forEach(b => {
+      const cfg = fr(b.id);
+      const w = cfg.w || b.w, h = H[b.id];
+      let p = cfg.p || 0, x = Math.max(0, Math.min(PG.w - w, cfg.x)), y = Math.max(top(p), cfg.y);
+      if (h > bottom - top(p) + 0.5 && (cfg.fs || 1) > 0.56) { cfg.fs = Math.max(0.55, Math.floor((bottom - top(p)) / h * (cfg.fs || 1) * 100) / 100); changed = true; }
+      for (let guard = 0; guard < 60; guard++) {
+        let bumped = true;
+        while (bumped) {
+          bumped = false;
+          (placed[p] || []).forEach(o => {
+            if (x < o.x + o.w - 0.5 && x + w > o.x + 0.5 && y < o.y + o.h + GAP - 0.3 && y + h > o.y - 0.3) { y = o.y + o.h + GAP; bumped = true; }
+          });
         }
-      });
+        if (y + h > bottom + 0.5 && y > top(p) + 0.5) { p += 1; y = top(p); continue; }
+        break;
+      }
+      if (p !== (cfg.p || 0) || Math.abs(y - cfg.y) > 0.05 || Math.abs(x - cfg.x) > 0.05) { cfg.p = p; cfg.y = Math.round(y * 10) / 10; cfg.x = Math.round(x * 10) / 10; changed = true; }
+      (placed[p] = placed[p] || []).push({ x, y, w, h });
     });
-    if (changed && persist) A.save();
+    const need = Math.max(0, ...Object.keys(placed).map(Number)) + 1;
+    if (need > R.pages) { R.pages = need; changed = true; }
+    return changed;
   }
   function cloneCanvas(src) { const c = document.createElement('canvas'); c.width = src.width; c.height = src.height; c.getContext('2d').drawImage(src, 0, 0); return c; }
   function hideCols(el, cols) {
@@ -527,27 +542,21 @@
   /* Side panel                                                          */
   /* ================================================================== */
   function panelHTML() {
-    if (!blocks.length && A.result()) built = content(), blocks = built.blocks;
+    if (!blocks.length && A.result()) { built = content(); blocks = built.blocks; }
     const R = rep();
-    const list = blocks.map(b => {
-      const cfg = fr(b.id);
-      const name = b.custom ? (cfg.title || 'Text') : b.name;
-      return `<div class="rel${cfg.hidden ? ' off' : ''}${sel === b.id ? ' on' : ''}" data-id="${b.id}">
-        <input type="checkbox" data-r="vis" ${cfg.hidden ? '' : 'checked'} title="Show in the report">
-        <span class="rel-n" data-r="go">${esc(name)}${cfg.html !== undefined && !b.custom ? ' <i>edited</i>' : ''}</span>
-        <span class="rel-p">${cfg.hidden ? '' : 'p. ' + ((cfg.p || 0) + 1)}</span>
-        ${b.custom ? '<button class="icon-btn del" data-r="del" title="Delete">✕</button>' : ''}</div>`;
-    }).join('');
-    return `<div class="hint"><b>Click</b> an element on the pages to select it, <b>drag</b> it to move it (also onto another page), <b>drag its side handles</b> to resize it.
-      <b>Double-click</b> to edit a text or a table; <b>Delete</b> removes it from the report. Blue lines show the alignments.</div>
-      <div class="rp-actions"><button class="btn" data-r="text">+ Text</button><button class="btn" data-r="page">+ Page</button><button class="btn" data-r="delpage" ${R.pages > 1 ? '' : 'disabled'}>− Last page</button><button class="btn" data-r="auto">Auto-arrange</button></div>
-      <h3>Elements <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">· ${R.pages} page${R.pages > 1 ? 's' : ''}</span></h3>
-      <div class="rels">${list}</div>
-      <div class="rp-actions"><button class="btn" data-r="reset">Reset the report</button><button class="btn primary" data-r="print">Print / save as PDF</button></div>`;
+    const removed = blocks.filter(b => fr(b.id).hidden).length;
+    return `<div class="hint"><b>Click</b> an element to select it · <b>drag</b> it to move it, also onto another page (guides snap it to the margins and the other elements) · <b>drag its side handles</b> to resize it · <b>double-click</b> to edit its text · <b>Delete</b> to remove it.<br><br>
+      Nothing can overlap: an element dropped on another one makes room below, and moves to the next page if needed.<br><br>
+      The drawings show the labels exactly as you arranged them in the Type, Loading and Settings tabs.</div>
+      <div class="rp-actions"><button class="btn" data-r="text">+ Text block</button><button class="btn" data-r="page">+ Page</button><button class="btn" data-r="delpage" ${R.pages > 1 ? '' : 'disabled'}>− Last page</button></div>
+      <div class="rp-actions"><button class="btn" data-r="auto">Auto-arrange</button>${removed ? `<button class="btn" data-r="restore">Restore removed elements (${removed})</button>` : ''}<button class="btn" data-r="reset">Reset the report</button></div>
+      <div class="rp-actions"><button class="btn primary big" data-r="print">Print / save as PDF</button></div>
+      <p class="muted" style="font-size:12px">${R.pages} page${R.pages > 1 ? 's' : ''} · A4 portrait</p>`;
   }
   function panelAction(a, id) {
     const R = rep();
-    if (a === 'vis') { const cfg = fr(id); if (cfg.hidden) { delete cfg.hidden; delete cfg.x; delete cfg.y; delete cfg.p; } else cfg.hidden = true; }
+    if (a === 'restore') { blocks.forEach(b => { const c = fr(b.id); if (c.hidden) { delete c.hidden; delete c.x; delete c.y; delete c.p; } }); }
+    else if (a === 'vis') { const cfg = fr(id); if (cfg.hidden) { delete cfg.hidden; delete cfg.x; delete cfg.y; delete cfg.p; } else cfg.hidden = true; }
     else if (a === 'go') { select(id); const el = stage && stage.querySelector(`.rframe[data-id="${id}"]`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); A.onChange && A.onChange(); return; }
     else if (a === 'del') { removeFrame(id); return; }
     else if (a === 'text') { const nid = 'txt-' + Math.random().toString(36).slice(2, 8); R.custom.push({ id: nid, type: 'text' }); sel = nid; }
