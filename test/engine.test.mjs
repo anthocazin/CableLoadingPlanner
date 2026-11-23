@@ -103,3 +103,12 @@ test('turn gap in % of OD', () => {
   const r = CLP.fillCompartment(comp, [{ length: 1e6, d: 0.1 }], { ...square, turnGapPct: 5 });
   assert.equal(r.turnsPerLayer[1], 10);
 });
+
+test('coiling direction checked against the armour lay', () => {
+  const p = drumProject([{ id: 's1', name: 'S1', cableId: 'c1', length: 100, compartment: 0 }]);
+  p.cables[0].armourLay = 'S';
+  p.winding = { ...square, rotation: 'ccw' };
+  assert.ok(CLP.compute(p).checks.some(c => /armour lay/.test(c.text) && c.level === 'warn'));
+  p.winding.rotation = 'cw';
+  assert.ok(!CLP.compute(p).checks.some(c => /armour lay/.test(c.text)));
+});

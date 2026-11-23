@@ -201,6 +201,10 @@
           ${field('Weight in air', `cables.${i}.weight`, c.weight, { unit: 'kg/m' })}
           ${field('Min. bend radius (storage)', `cables.${i}.mbr`, c.mbr, { unit: 'm' })}
           ${field('Crush limit: max layers on top', `cables.${i}.maxLayers`, c.maxLayers || '', { unit: 'blank = no check', placeholder: '—' })}
+          <label class="f full">Armour lay direction<select data-bind="cables.${i}.armourLay" data-type="text">
+            <option value=""${!c.armourLay ? ' selected' : ''}>Unknown / not checked</option>
+            <option value="S"${c.armourLay === 'S' ? ' selected' : ''}>S — left-hand lay (normally coiled clockwise)</option>
+            <option value="Z"${c.armourLay === 'Z' ? ' selected' : ''}>Z — right-hand lay (normally coiled counter-clockwise)</option></select></label>
         </div>
         <div class="derived" style="margin-top:8px" id="cabinfo-${i}"></div>
       </div>`;
@@ -211,7 +215,14 @@
 
   function renderPlanTab() {
     const opts = comps.map(c => ({ v: c.index, t: `${c.label} — ${c.name}` }));
-    let h = '<div class="hint"><b>Loading order:</b> the first section in the list is loaded first, so it ends up at the bottom of the coil (or on the barrel) and comes off last. Sections loaded in the same compartment follow each other turn after turn.</div>';
+    const rot = state.winding.rotation === 'ccw' ? 'ccw' : 'cw';
+    const coil = kind() === 'coil';
+    const lays = [...new Set(state.cables.map(c => c.armourLay).filter(Boolean))];
+    const advice = lays.length === 1 ? `Cable armour lay ${lays[0]} → normally ${lays[0] === 'S' ? 'clockwise' : 'counter-clockwise'}.` : 'Most power cables (export and inter-array) have S / left-hand lay armour and are coiled clockwise — always follow the manufacturer\'s handling specification.';
+    let h = `<div class="dirbox"><div class="dir-title">${coil ? 'Coiling direction (seen from above)' : 'Winding direction (seen from the start flange)'}</div>
+      <div class="seg2"><button data-action="rot" data-value="cw" class="${rot === 'cw' ? 'active' : ''}">↻ Clockwise</button><button data-action="rot" data-value="ccw" class="${rot === 'ccw' ? 'active' : ''}">↺ Counter-clockwise</button></div>
+      <div class="dir-note">${esc(advice)}</div></div>`;
+    h += '<div class="hint"><b>Loading order:</b> the first section in the list is loaded first, so it ends up at the bottom of the coil (or on the barrel) and comes off last. Sections loaded in the same compartment follow each other turn after turn.</div>';
     if (!state.sections.length) h += '<p class="muted">No section yet.</p>';
     state.sections.forEach((s, i) => {
       h += `<div class="sec-row" data-sec="${i}">
@@ -383,6 +394,7 @@
         ui.zoom = 'all'; ui.view = 'section';
         break;
       }
+      case 'rot': state.winding.rotation = b.dataset.value; break;
       case 'delLogo': state.info.logos.splice(i, 1); break;
       case 'logoLeft': if (i > 0) state.info.logos.splice(i - 1, 0, state.info.logos.splice(i, 1)[0]); break;
       case 'logoRight': if (i < state.info.logos.length - 1) state.info.logos.splice(i + 1, 0, state.info.logos.splice(i, 1)[0]); break;
