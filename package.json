@@ -1,0 +1,11 @@
+{
+  "name": "cable-loading-planner",
+  "version": "1.0.0",
+  "description": "Plan and visualise cable loading on turntables, static tanks and cable drums.",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "build": "node tools/build.mjs"
+  },
+  "license": "MIT"
+}

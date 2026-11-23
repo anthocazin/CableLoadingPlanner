@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Calculation engine tests
+        run: npm test
+      - name: Build the standalone version
+        run: npm run build
+      - name: Check that dist/ is up to date
+        run: git diff --exit-code -- dist/ || (echo "::warning::dist/CableLoadingPlanner.html is out of date — run npm run build" && exit 0)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CableLoadingPlanner-standalone
+          path: dist/CableLoadingPlanner.html
