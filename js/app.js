@@ -149,7 +149,7 @@
     const c = state.carrier;
     let h = '<div class="seg">' + Object.keys(CARRIER_TYPES).map(t =>
       `<button data-action="type" data-value="${t}" class="${c.type === t ? 'active' : ''}">${ICONS[t]}<span>${CARRIER_TYPES[t].label}</span></button>`).join('') + '</div>';
-    h += '<div class="grid2">' + field('Carrier name / ID', 'carrier.name', c.name, { type: 'text', full: true, placeholder: 'e.g. Turntable 1' }) +
+    h += '<div class="grid2">' + field('Equipment', 'carrier.name', c.name, { type: 'text', full: true, placeholder: 'e.g. TT1002' }) +
       field('Max. cable load (SWL)', 'carrier.maxLoad', c.maxLoad, { unit: 't' }) +
       field(kind() === 'coil' ? 'Empty weight (tare)' : 'Empty drum weight (tare)', 'carrier.tare', c.tare, { unit: 't' }) + '</div>';
     if (kind() === 'coil') {
@@ -468,7 +468,7 @@
   function views() {
     return kind() === 'coil'
       ? [{ id: 'section', t: 'Cross-section' }, { id: 'plan', t: 'Plan view (top layer)' }]
-      : [{ id: 'section', t: 'Cross-section' }, { id: 'side', t: 'Side view' }];
+      : [{ id: 'section', t: 'Cross-section' }, { id: 'side', t: 'Side view (start side)' }];
   }
   function renderViewControls() {
     const vs = views();
@@ -997,7 +997,7 @@
     if (!cr) return noData('No bay');
     const Rb = num(d.barrelDiameter) / 2, Rf = num(d.flangeDiameter) / 2;
     const world = { x0: -Rf * 1.06, x1: Rf * 1.06, y0: -Rf * 1.06, y1: Rf * 1.06 };
-    const v = makeView(world, W, H, { l: 10, r: 290, t: 24, b: 10 });
+    const v = makeView(world, W, H, { l: 10, r: 290, t: 44, b: 10 });
     const cx = v.X(0), cy = v.Y(0);
     ctx.beginPath(); ctx.arc(cx, cy, Rf * v.s, 0, Math.PI * 2); ctx.fillStyle = '#e6edf5'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = STEEL_D; ctx.stroke();
     // ground line (drum standing on its flanges)
@@ -1049,8 +1049,33 @@
           text: `${shortName(o.si)} top · R ${fmt(o.sr.top, 2)} m · H ${fmt(Rf + o.sr.top, 2)} m`, pos: (w, h) => [lx, y0 - h / 2] });
         ly += 22;
       });
-      ctx.fillStyle = '#5a7391'; ctx.font = '11px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillText(`${cr.comp.name}: one ring per layer. R = radius from the drum axis, H = height above ground (drum standing on its flanges). Red dashed = freeboard limit.`, 10, 6);
+    }
+    // seen from the start side: where the cable starts and which way it is wound
+    const side = state.winding.startSide === 'right' ? 'right' : 'left';
+    const startList = [];
+    cr.sectionIdx.forEach((si, j) => {
+      const sr = result.sections[si];
+      if (j !== 0 || !sr || !sr.first || !(sr.placed > 0)) return;
+      const r = sr.first.stack;
+      startList.push({ id: `start:${secId(si)}`, px: cx, py: cy - r * v.s, color: sectionColor(si),
+        text: `${shortName(si)} start (inner end) · ${side} flange · R ${fmt(r, 2)} m · 12 o'clock` });
+    });
+    // winding direction arrow (clockwise seen from the start side)
+    const ra = Rb * v.s * 0.72;
+    ctx.save(); ctx.strokeStyle = BLUE; ctx.fillStyle = BLUE; ctx.lineWidth = 2.5;
+    const a0 = -Math.PI / 2 + 0.25, a1 = -Math.PI / 2 + 1.35;
+    ctx.beginPath(); ctx.arc(cx, cy, ra, a0, a1); ctx.stroke();
+    arrow(cx + ra * Math.cos(a1), cy + ra * Math.sin(a1), a1 + Math.PI / 2);
+    ctx.restore();
+    if (ui.labels) textLabel('winddir', cx + ra * 0.5, cy - ra * 0.05, '↻ winding direction', '600 10.5px ' + FONT, '#0b3a75', 'bottom');
+    drawMarkers(startList, cx + Rf * v.s);
+    if (ui.labels) {
+      ctx.save();
+      ctx.fillStyle = INK; ctx.font = '700 12px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(`${cr.comp.name} — seen from the ${side.toUpperCase()} flange (start side)`, 10, 6);
+      ctx.fillStyle = '#5a7391'; ctx.font = '11px ' + FONT;
+      ctx.fillText('1st turn at 12 o\'clock against the ' + side + ' flange, wound clockwise. R from the axis · H above ground · red dashed = freeboard.', 10, 24);
+      ctx.restore();
     }
     hit.view = v; hit.mode = 'radial'; hit.center = [cx, cy];
   }
@@ -1501,7 +1526,7 @@
     const img1 = renderImage('section', 'all', W, coil ? 560 : 520);
     const img2 = [];
     if (coil) img2.push({ src: renderImage('plan', 'all', 520, 520), cap: 'Plan view — top two layers' });
-    else result.compartments.slice(0, 3).forEach(cr => img2.push({ src: renderImage('side', String(cr.comp.index), 420, 420), cap: `Side view — ${cr.comp.name}` }));
+    else result.compartments.slice(0, 3).forEach(cr => img2.push({ src: renderImage('side', String(cr.comp.index), 420, 420), cap: `Side view from the ${state.winding.startSide === 'right' ? 'right' : 'left'} flange (start side) — ${cr.comp.name}` }));
 
     const kpi = (k, v, cls) => `<div class="rk ${cls || ''}"><div class="rk-k">${k}</div><div class="rk-v">${v}</div></div>`;
     let kpis = kpi('Cable loaded', `${fmt(t.length, 0)} m`) + kpi('Cable weight', `${fmt(t.weight, 1)} t`);
@@ -1511,7 +1536,7 @@
     kpis += kpi(sp.byWeight ? 'Spare capacity (by SWL)' : 'Spare capacity', `${fmt(sp.len, 0)} m`);
     if (t.vcg !== null) kpis += kpi('Cable VCG', `${fmt(t.vcg, 2)} m`);
 
-    const info = [['Client / project', i.client], ['Vessel / site', i.vessel], ['Carrier', `${typeLabel}${c.name ? ' — ' + c.name : ''}`],
+    const info = [['Client / project', i.client], ['Vessel / site', i.vessel], ['Equipment', `${c.name ? c.name + ' — ' : ''}${typeLabel}`],
       ['Max. cable load (SWL)', num(c.maxLoad) ? fmt(num(c.maxLoad), 1) + ' t' : '–'], ['Empty weight (tare)', num(c.tare) ? fmt(num(c.tare), 1) + ' t' : '–'],
       ['Coiling / winding', `${w.stacking === 'nested' ? 'Nested' : 'Square'} stacking · turn gap ${fmt(num(w.turnGapPct), 1)} % OD ${gapMm(w.turnGapPct)} · layer gap ${fmt(num(w.layerGapPct), 1)} % OD ${gapMm(w.layerGapPct)}`]];
 
