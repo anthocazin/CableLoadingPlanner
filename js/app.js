@@ -658,7 +658,18 @@
         list.push({ px: v.X(x), py: v.Y(y), text: `${shortName(si)} end · ${fmt(sr.placed, 0)} m`, color: sectionColor(si), path: `sections.${si}.length`, value: state.sections[si].length });
         if (j === 0 && sr.first) {
           const [x0, y0] = mapXY({ across: sr.first.across, stack: sr.first.stack });
-          list.push({ px: v.X(x0), py: v.Y(y0), text: `${shortName(si)} start`, color: sectionColor(si) });
+          const px = v.X(x0), py = v.Y(y0), c = cr.comp, coil = c.kind === 'coil';
+          const sideName = coil ? (state.winding.startSide === 'outer' ? 'outer wall' : 'core side') : (state.winding.startSide === 'right' ? 'right flange' : 'left flange');
+          list.push({ px, py, text: `${shortName(si)} start ⇄`, color: sectionColor(si) });
+          // drag the start point to the other side → loading starts from the inside or the outside
+          addHandle({ priority: true, cursor: 'grab', label: `start point (now: ${sideName}) — drop it on the other side to load from there`,
+            test: (mx, my) => Math.hypot(mx - px, my - py) <= 10,
+            start: () => ({}),
+            move: (mx) => {
+              const x = coil ? Math.abs(v.invX(mx)) : v.invX(mx);
+              const nearMin = x < (c.acrossMin + c.acrossMax) / 2;
+              state.winding.startSide = coil ? (nearMin ? 'inner' : 'outer') : (nearMin ? 'left' : 'right');
+            } });
         }
       });
     });
@@ -999,7 +1010,7 @@
   const wrap = $('canvasWrap');
   function chipAt(mx, my) { return hit.chips.slice().reverse().find(c => mx >= c.x && mx <= c.x + c.w && my >= c.y && my <= c.y + c.h); }
 
-  function handleAt(mx, my) { return hit.handles.find(h => h.test(mx, my)); }
+  function handleAt(mx, my) { return hit.handles.find(h => h.priority && h.test(mx, my)) || hit.handles.find(h => !h.priority && h.test(mx, my)); }
   let drag = null, dragMoved = false;
   const posOf = e => { const rc = canvas.getBoundingClientRect(); return [e.clientX - rc.left, e.clientY - rc.top]; };
   canvas.addEventListener('pointerdown', e => {
@@ -1010,6 +1021,7 @@
     e.preventDefault();
     canvas.setPointerCapture(e.pointerId);
     drag = { h, st: h.start(mx, my) };
+    if (h.cursor === 'grab') canvas.style.cursor = 'grabbing';
     dragMoved = false;
     frozen = hit.view ? hit.view.world : null;
     tip.style.display = 'none';
