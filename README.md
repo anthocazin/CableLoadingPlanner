@@ -33,7 +33,7 @@ Three examples are built in (*Examples…* menu): export cable on a 5 000 t turn
    - Dimensions and section lengths can also be **edited directly on the drawing** (click a value ✎), and walls, flanges and the barrel can be **dragged with the mouse** to resize them. Drag the **start ⇄** point to the other side to load from the inside or the outside (left or right flange on a drum).
 2. **Cables** — library of cable types: OD (mm), weight (kg/m), minimum bend radius (m), optional crush limit (max. layers on top).
 3. **Loading plan** — the cable sections, in loading order: name, cable type, length, compartment / bay. The **Max** button sets a section to the largest length that still fits after the sections loaded before it.
-4. **Settings** — square or nested stacking, gaps between turns and between layers **in % of the cable OD** (the equivalent in mm is shown), side where the first layer starts, report information. Standard values are applied by default: 0 % between layers (layer pitch 1.0 × OD square / 0.866 × OD nested), 5 % of OD between turns when coiling in a tank / on a turntable, 0 % on a drum; working capacity ≈ 80 % of theoretical.
+4. **Settings** — square or nested stacking, gaps between turns and between layers **in % of the cable OD** (the equivalent in mm is shown), side where the first layer starts, rotation (clockwise / counter-clockwise, shown by an arrow on the plan view and on the drum side view — hide the arrow's label to remove it), report information. Standard values are applied by default: 0 % between layers (layer pitch 1.0 × OD square / 0.866 × OD nested), 5 % of OD between turns when coiling in a tank / on a turntable, 0 % on a drum; working capacity ≈ 80 % of theoretical.
 
 ## What you get
 
@@ -42,7 +42,7 @@ Three examples are built in (*Examples…* menu): export cable on a 5 000 t turn
   - turntable / tank: *cross-section* through the centre (full diameter, with dimensions) and *plan view* of the top layers;
   - drum: *cross-section* along the axis and *side view* (one ring per layer).
   - Start and end of every section are flagged.
-- **Labels you arrange yourself** on every view: drag a label to move it (a leader line keeps it attached to what it describes), click to rename it (or to edit the value ✎), right-click to rename, hide, put back in place or reset all labels of the view. Each label is tied to its element (section, ring, bay, dimension), so it follows it when the loading order or the dimensions change. The layout is saved with the project and used in the report.
+- **Labels you arrange yourself** on every view (global label size 80–200 %, or mouse wheel on one label to resize it): drag a label to move it (a leader line keeps it attached to what it describes), click to rename it (or to edit the value ✎), right-click to rename, hide, put back in place or reset all labels of the view. Each label is tied to its element (section, ring, bay, dimension), so it follows it when the loading order or the dimensions change. The layout is saved with the project and used in the report.
 - **Fill gauges** per compartment: length of each section, spare capacity, stack height used.
 - **Sections table**: loaded length, weight, inner end and outer end position (layer / turn / % of the turn, radius, height or distance from the flange, coiling direction), off-load order.
 - **Compartments table**: layers, turns per layer, stack used, cable VCG above the floor (for stability), spare capacity.

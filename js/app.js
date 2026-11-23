@@ -99,6 +99,8 @@
     p.carrier.rings.forEach(r => { if (!r.id) r.id = uid(); });
     p.carrier.drum.bays.forEach(b => { if (!b.id) b.id = uid(); });
     if (!p.labels || typeof p.labels !== 'object') p.labels = {};
+    if (!p.labelScale) p.labelScale = 1;
+    if (p.winding.rotation !== 'ccw') p.winding.rotation = 'cw';
     p.sections.forEach((s, i) => { if (!s.id) s.id = uid(); if (!s.color) s.color = PALETTE[i % PALETTE.length]; });
     return p;
   }
@@ -243,6 +245,8 @@
       <label class="f">Gap between turns <span class="unit">(% of OD)</span><input type="text" inputmode="decimal" autocomplete="off" data-bind="winding.turnGapPct" data-type="num" value="${esc(w.turnGapPct)}"><span class="gapmm" id="gapmm-turn"></span></label>
       <label class="f">Gap between layers <span class="unit">(% of OD)</span><input type="text" inputmode="decimal" autocomplete="off" data-bind="winding.layerGapPct" data-type="num" value="${esc(w.layerGapPct)}"><span class="gapmm" id="gapmm-layer"></span></label>
       <label class="f full">First layer starts at<select data-bind="winding.startSide" data-type="text">${side}</select></label>
+      <label class="f full">Rotation ${kind() === 'coil' ? '(seen from above)' : '(seen from the start flange)'}<select data-bind="winding.rotation" data-type="text">
+        <option value="cw"${w.rotation !== 'ccw' ? ' selected' : ''}>Clockwise</option><option value="ccw"${w.rotation === 'ccw' ? ' selected' : ''}>Counter-clockwise</option></select></label>
     </div>
     ${standardBox()}
     <h3>Report information</h3><div class="grid2">
@@ -429,6 +433,7 @@
     result = compute(state);
     capMatrix = capacityMatrix(state);
     $('projectName').value = state.name || '';
+    $('labelSize').value = String(state.labelScale || 1);
     renderKPIs();
     renderStatus();
     renderViewControls();
@@ -486,6 +491,7 @@
   $('viewPills').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; if (ui.view === 'side' && b.dataset.view !== 'side') ui.zoom = 'all'; ui.view = b.dataset.view; renderViewControls(); drawCanvas(); });
   $('zoomSelect').addEventListener('change', e => { ui.zoom = e.target.value; drawCanvas(); });
   $('showLabels').addEventListener('change', e => { ui.labels = e.target.checked; drawCanvas(); });
+  $('labelSize').addEventListener('change', e => { state.labelScale = num(e.target.value, 1); autosave(); drawCanvas(); });
 
   /* ================================================================== */
   /* Canvas drawing                                                      */
@@ -610,11 +616,13 @@
     }
     const style = L.style;
     const editable = !!L.path && !printing;
+    const sc = Math.max(0.5, Math.min(4, (num(state.labelScale, 1) || 1) * (cfg.scale || 1)));   // global × per-label size
+    const scaleFont = f => f.replace(/([\d.]+)px/, (m, n) => (n * sc).toFixed(1) + 'px');
     ctx.save();
-    ctx.font = L.font || ('600 11px ' + FONT);
+    ctx.font = scaleFont(L.font || ('600 11px ' + FONT));
     const tw = ctx.measureText(text).width;
-    const padL = style === 'marker' || style === 'top' ? 10 : style === 'text' ? 3 : 5;
-    const w = tw + padL + 5 + (editable ? 13 : 0), h = style === 'text' ? 16 : 18;
+    const padL = (style === 'marker' || style === 'top' ? 10 : style === 'text' ? 3 : 5) * sc;
+    const w = tw + padL + 5 * sc + (editable ? 13 * sc : 0), h = (style === 'text' ? 16 : 18) * sc;
     let [x, y] = L.pos(w, h);
     const moved = cfg.dx !== undefined;
     if (moved) { x = L.ax + cfg.dx; y = L.ay + cfg.dy; }
@@ -634,14 +642,35 @@
     else if (style === 'top') { ctx.fillStyle = '#fff'; roundRect(x, y, w, h, 4); ctx.fill(); ctx.strokeStyle = L.color; ctx.lineWidth = 1.5; ctx.stroke(); }
     else if (style === 'chip') { ctx.fillStyle = editable ? '#fff' : 'rgba(255,255,255,.85)'; roundRect(x, y, w, h, 4); ctx.fill(); if (editable) { ctx.strokeStyle = BLUE; ctx.lineWidth = 1.2; ctx.stroke(); } }
     else if (moved) { ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(x, y, w, h); }
-    if (style === 'marker' || style === 'top') { ctx.fillStyle = L.color; ctx.fillRect(x + 4, y + 5, 3, h - 10); }
+    if (style === 'marker' || style === 'top') { ctx.fillStyle = L.color; ctx.fillRect(x + 4 * sc, y + 5 * sc, 3 * sc, h - 10 * sc); }
     ctx.fillStyle = style === 'marker' ? '#fff' : (L.textColor || INK);
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(text, x + padL, y + h / 2 + 0.5);
-    if (editable) { ctx.fillStyle = style === 'marker' ? '#9cc4f5' : BLUE; ctx.font = '11px ' + FONT; ctx.fillText('✎', x + padL + tw + 3, y + h / 2 + 0.5); }
+    if (editable) { ctx.fillStyle = style === 'marker' ? '#9cc4f5' : BLUE; ctx.font = scaleFont('11px ' + FONT); ctx.fillText('✎', x + padL + tw + 3 * sc, y + h / 2 + 0.5); }
     ctx.restore();
     if (!printing) hit.labels.push({ id: L.id, x, y, w, h, ax: L.ax, ay: L.ay, path: L.path, value: L.value, text, defText: L.text, custom: !!cfg.text, valueLabel: !!L.path });
     return { x, y, w, h };
+  }
+
+  /* rotation seen from above (turntable / tank) or from the start flange (drum): clockwise = +1 */
+  const rotSign = () => (state.winding.rotation === 'ccw' ? -1 : 1);
+  function directionArrow(id, cx, cy, ra, text, outside) {
+    if (labCfg(id).hidden) { hit.hidden += 1; return; }   // hiding the label removes the arrow too
+    const sg = rotSign();
+    ctx.save(); ctx.strokeStyle = BLUE; ctx.fillStyle = BLUE; ctx.lineWidth = 2.5;
+    const a0 = -Math.PI / 2 + sg * 0.25, a1 = -Math.PI / 2 + sg * 1.35;
+    ctx.beginPath(); ctx.arc(cx, cy, ra, a0, a1, sg < 0); ctx.stroke();
+    arrow(cx + ra * Math.cos(a1), cy + ra * Math.sin(a1), a1 + sg * Math.PI / 2);
+    ctx.restore();
+    const txt = `${sg > 0 ? '↻' : '↺'} ${text} (${sg > 0 ? 'clockwise' : 'counter-clockwise'})`;
+    if (outside) { // label just past the arrow head, outside the drawing
+      const ex = cx + ra * Math.cos(a1), ey = cy + ra * Math.sin(a1);
+      label({ id, style: 'text', ax: ex, ay: ey, text: txt, font: '600 11px ' + FONT, textColor: '#0b3a75', leader: 'moved',
+        pos: (w, h) => [sg > 0 ? ex + 14 : ex - 14 - w, ey + 4] });
+      return;
+    }
+    const tx = cx + ra * Math.cos(-Math.PI / 2 + sg * 0.8), ty = cy + ra * Math.sin(-Math.PI / 2 + sg * 0.8);
+    textLabel(id, (cx + tx) / 2, (cy + ty) / 2 + 8, `${sg > 0 ? '↻' : '↺'} ${text} (${sg > 0 ? 'clockwise' : 'counter-clockwise'})`, '600 10.5px ' + FONT, '#0b3a75', 'bottom');
   }
 
   /* editable value on the drawing ("chip") */
@@ -950,7 +979,8 @@
         ctx.lineWidth = Math.max(1, t.d * v.s * 0.92);
         t.segs.forEach(sg => {
           ctx.strokeStyle = sectionColor(cr.sectionIdx[sg.item]);
-          ctx.beginPath(); ctx.arc(cx, cy, rr, -Math.PI / 2 + sg.from * 2 * Math.PI, -Math.PI / 2 + sg.to * 2 * Math.PI); ctx.stroke();
+          const rs = rotSign();
+          ctx.beginPath(); ctx.arc(cx, cy, rr, -Math.PI / 2 + rs * sg.from * 2 * Math.PI, -Math.PI / 2 + rs * sg.to * 2 * Math.PI, rs < 0); ctx.stroke();
         });
         ctx.globalAlpha = 1;
         hit.items.push({ r0: t.across - t.d / 2, r1: t.across + t.d / 2, cr, t });
@@ -981,13 +1011,15 @@
     crs.forEach(cr => cr.sectionIdx.forEach(si => {
       const sr = result.sections[si];
       if (!sr || !sr.last || !(sr.placed > 0) || sr.last.layer < cr.fill.layers - 1) return;
-      const a = -Math.PI / 2 + sr.last.frac * 2 * Math.PI;
+      const a = -Math.PI / 2 + rotSign() * sr.last.frac * 2 * Math.PI;
       list.push({ id: `end:${secId(si)}`, px: cx + Math.cos(a) * sr.last.across * v.s, py: cy + Math.sin(a) * sr.last.across * v.s, text: `${shortName(si)} end`, color: sectionColor(si), path: `sections.${si}.length`, value: state.sections[si].length });
     }));
     drawMarkers(list);
+    const core = rings[0];
+    directionArrow('rotdir', cx, cy, Rmax * v.s + 14, 'rotation / coiling', true);
     if (ui.labels) {
       ctx.fillStyle = '#5a7391'; ctx.font = '11px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillText('Top two layers seen from above. Turns start at 12 o\'clock and run clockwise.', 10, 6);
+      ctx.fillText(`Top two layers seen from above. Turns start at 12 o'clock and run ${rotSign() > 0 ? 'clockwise' : 'counter-clockwise'}.`, 10, 6);
     }
     hit.view = v; hit.mode = 'radial'; hit.center = [cx, cy];
   }
@@ -1017,9 +1049,9 @@
       ctx.lineWidth = Math.max(1, dd * v.s * 0.92);
       let a0 = -Math.PI / 2;
       parts.forEach(si => {
-        const a1 = a0 + share[si] / capL * 2 * Math.PI;
+        const a1 = a0 + rotSign() * share[si] / capL * 2 * Math.PI;
         ctx.strokeStyle = sectionColor(si);
-        ctx.beginPath(); ctx.arc(cx, cy, r * v.s, a0, a1); ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, cy, r * v.s, a0, a1, rotSign() < 0); ctx.stroke();
         a0 = a1;
       });
       hit.items.push({ r0: r - dd / 2, r1: r + dd / 2, cr, layer: L, ts, share, tot, capL });
@@ -1062,21 +1094,15 @@
       startList.push({ id: `start:${secId(si)}`, px: cx, py: cy - r * v.s, color: sectionColor(si),
         text: `${shortName(si)} start (inner end) · ${side} flange · R ${fmt(r, 2)} m · 12 o'clock` });
     });
-    // winding direction arrow (clockwise seen from the start side)
-    const ra = Rb * v.s * 0.72;
-    ctx.save(); ctx.strokeStyle = BLUE; ctx.fillStyle = BLUE; ctx.lineWidth = 2.5;
-    const a0 = -Math.PI / 2 + 0.25, a1 = -Math.PI / 2 + 1.35;
-    ctx.beginPath(); ctx.arc(cx, cy, ra, a0, a1); ctx.stroke();
-    arrow(cx + ra * Math.cos(a1), cy + ra * Math.sin(a1), a1 + Math.PI / 2);
-    ctx.restore();
-    if (ui.labels) textLabel('winddir', cx + ra * 0.5, cy - ra * 0.05, '↻ winding direction', '600 10.5px ' + FONT, '#0b3a75', 'bottom');
+    // winding direction arrow (seen from the start side) — hide its label to remove it
+    directionArrow('winddir', cx, cy, Rb * v.s * 0.72, 'winding direction');
     drawMarkers(startList, cx + Rf * v.s);
     if (ui.labels) {
       ctx.save();
       ctx.fillStyle = INK; ctx.font = '700 12px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
       ctx.fillText(`${cr.comp.name} — seen from the ${side.toUpperCase()} flange (start side)`, 10, 6);
       ctx.fillStyle = '#5a7391'; ctx.font = '11px ' + FONT;
-      ctx.fillText('1st turn at 12 o\'clock against the ' + side + ' flange, wound clockwise. R from the axis · H above ground · red dashed = freeboard.', 10, 24);
+      ctx.fillText(`1st turn at 12 o'clock against the ${side} flange, wound ${rotSign() > 0 ? 'clockwise' : 'counter-clockwise'}. R from the axis · H above ground · red dashed = freeboard.`, 10, 24);
       ctx.restore();
     }
     hit.view = v; hit.mode = 'radial'; hit.center = [cx, cy];
@@ -1218,6 +1244,17 @@
   canvas.addEventListener('pointerup', endDrag);
   canvas.addEventListener('pointercancel', endDrag);
 
+  canvas.addEventListener('wheel', e => {
+    const [mx, my] = posOf(e);
+    const lab = labelAt(mx, my);
+    if (!lab) return;
+    e.preventDefault();
+    const cur = labCfg(lab.id).scale || 1;
+    const nx = Math.max(0.6, Math.min(3, cur * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
+    setLabCfg(lab.id, { scale: Math.abs(nx - 1) < 0.04 ? undefined : nx });
+    autosave(); redraw();
+  }, { passive: false });
+
   canvas.addEventListener('dblclick', e => {
     const [mx, my] = posOf(e);
     const lab = labelAt(mx, my);
@@ -1241,6 +1278,10 @@
       if (lab.path) items.push(['value', 'Edit value…']);
       items.push(['rename', 'Rename…']);
       if (cfg.text) items.push(['name', 'Restore original name']);
+      items.push(['big', 'Bigger  (or mouse wheel up)']);
+      items.push(['small', 'Smaller  (or mouse wheel down)']);
+      if (cfg.scale) items.push(['size', 'Default size']);
+      if (lab.id === 'winddir' || lab.id === 'rotdir') items.push(['rev', 'Reverse the direction']);
       if (cfg.dx !== undefined) items.push(['pos', 'Put back in place']);
       items.push(['hide', 'Hide this label']);
     }
@@ -1263,6 +1304,9 @@
       if (a === 'rename') return openRename(lab);
       if (a === 'name') setLabCfg(lab.id, { text: undefined });
       else if (a === 'pos') setLabCfg(lab.id, { dx: undefined, dy: undefined });
+      else if (a === 'big' || a === 'small') setLabCfg(lab.id, { scale: Math.max(0.6, Math.min(3, (cfg.scale || 1) * (a === 'big' ? 1.2 : 1 / 1.2))) });
+      else if (a === 'size') setLabCfg(lab.id, { scale: undefined });
+      else if (a === 'rev') { state.winding.rotation = state.winding.rotation === 'ccw' ? 'cw' : 'ccw'; if (ui.tab === 'settings') renderTab(); }
       else if (a === 'hide') setLabCfg(lab.id, { hidden: true });
       else if (a === 'show') showHiddenLabels();
       else if (a === 'reset') resetLabels();

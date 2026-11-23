@@ -51,8 +51,9 @@
         <select id="zoomSelect" class="no-print" aria-label="Zoom"></select>
         <span id="labelTools" class="no-print"></span>
         <label class="no-print"><input type="checkbox" id="showLabels" checked> Labels</label>
+        <label class="no-print">Size <select id="labelSize" aria-label="Label size"><option value="0.8">80 %</option><option value="1">100 %</option><option value="1.25">125 %</option><option value="1.5">150 %</option><option value="2">200 %</option></select></label>
       </div>
-      <div class="viz-hint no-print">Click a <span class="chip-demo">value ✎</span> to type it, or <b>drag a wall, a flange or the barrel</b> with the mouse to resize it. Drag the <b>start ⇄</b> point to the other side to load from the inside or the outside. <b>Labels:</b> drag to move, click to rename (or edit a value ✎), right-click to hide / reset.</div>
+      <div class="viz-hint no-print">Click a <span class="chip-demo">value ✎</span> to type it, or <b>drag a wall, a flange or the barrel</b> with the mouse to resize it. Drag the <b>start ⇄</b> point to the other side to load from the inside or the outside. <b>Labels:</b> drag to move, click to rename (or edit a value ✎), mouse wheel on a label to resize it, right-click to hide / resize / reset.</div>
       <div class="canvas-wrap" id="canvasWrap">
         <canvas id="canvas"></canvas>
         <div class="tooltip" id="tooltip"></div>
