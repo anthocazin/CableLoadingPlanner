@@ -17,7 +17,7 @@
     { name: 'Outer wall', diameter: 30, thickness: 25, height: 6.5 },
   ];
   const defaultDrum = () => ({ barrelDiameter: 2.8, flangeDiameter: 4.6, flangeThickness: 40, freeboard: 0.1, bays: [{ name: 'Bay 1', width: 1.4 }] });
-  const info = () => ({ client: '', vessel: '', preparedBy: '', date: today(), reference: '', notes: '' });
+  const info = () => ({ client: '', vessel: '', preparedBy: '', checkedBy: '', approvedBy: '', date: today(), reference: '', revision: '0', revDescription: 'Issued for use', notes: '', logos: [] });
 
   const EXAMPLES = {
     turntable: () => ({
@@ -253,11 +253,19 @@
     <h3>Report information</h3><div class="grid2">
       ${field('Client / project', 'info.client', inf.client, { type: 'text' })}
       ${field('Vessel / site', 'info.vessel', inf.vessel, { type: 'text' })}
-      ${field('Document reference', 'info.reference', inf.reference, { type: 'text' })}
-      ${field('Prepared by', 'info.preparedBy', inf.preparedBy, { type: 'text' })}
+      ${field('Document No.', 'info.reference', inf.reference, { type: 'text' })}
+      ${field('Revision', 'info.revision', inf.revision, { type: 'text' })}
       ${field('Date', 'info.date', inf.date, { type: 'date' })}
+      ${field('Revision description', 'info.revDescription', inf.revDescription, { type: 'text' })}
+      ${field('Prepared by', 'info.preparedBy', inf.preparedBy, { type: 'text' })}
+      ${field('Checked by', 'info.checkedBy', inf.checkedBy, { type: 'text' })}
+      ${field('Approved by', 'info.approvedBy', inf.approvedBy, { type: 'text' })}
       ${field('Notes', 'info.notes', inf.notes, { type: 'textarea', full: true })}
-    </div>`;
+    </div>
+    <h3>Logos (top left of the report)</h3>
+    <div class="logos">${(inf.logos || []).map((l, k) => `<div class="logo-item"><img src="${l.src}" alt="${esc(l.name || 'logo')}">
+      <div class="logo-ctrl"><button class="icon-btn" data-action="logoLeft" data-i="${k}" title="Move left" ${k === 0 ? 'disabled' : ''}>◀</button><button class="icon-btn" data-action="logoRight" data-i="${k}" title="Move right" ${k === inf.logos.length - 1 ? 'disabled' : ''}>▶</button><button class="icon-btn del" data-action="delLogo" data-i="${k}" title="Remove">✕</button></div></div>`).join('') || '<p class="muted" style="margin:0">No logo yet.</p>'}</div>
+    <label class="btn add">+ Add logo(s) — PNG, JPG or SVG<input type="file" id="logoInput" accept="image/*" multiple hidden></label>`;
   }
 
   /* gap in % of OD → "(12 mm)" for the cable(s) of the project */
@@ -353,6 +361,7 @@
   });
   $('tabBody').addEventListener('change', e => {
     const el = e.target;
+    if (el.id === 'logoInput') { addLogoFiles(el.files); el.value = ''; return; }
     if (!el.dataset.bind) return;
     setPath(state, el.dataset.bind, readInput(el));
     if (el.dataset.rerender === 'sortRings') state.carrier.rings.sort((a, b) => num(a.diameter) - num(b.diameter));
@@ -374,6 +383,9 @@
         ui.zoom = 'all'; ui.view = 'section';
         break;
       }
+      case 'delLogo': state.info.logos.splice(i, 1); break;
+      case 'logoLeft': if (i > 0) state.info.logos.splice(i - 1, 0, state.info.logos.splice(i, 1)[0]); break;
+      case 'logoRight': if (i < state.info.logos.length - 1) state.info.logos.splice(i + 1, 0, state.info.logos.splice(i, 1)[0]); break;
       case 'std': {
         applyStandard(state);
         break;
@@ -429,6 +441,7 @@
   /* ================================================================== */
   function update() {
     reportBuiltAt = 0; // the project changed: the report must be rebuilt before printing
+    ensureLogos();
     comps = compartments(state.carrier);
     const nComp = comps.length;
     state.sections.forEach(s => { if ((s.compartment | 0) >= nComp) s.compartment = Math.max(0, nComp - 1); });
@@ -675,10 +688,12 @@
     textLabel(id, (cx + tx) / 2, (cy + ty) / 2 + 8, `${sg > 0 ? '↻' : '↺'} ${text} (${sg > 0 ? 'clockwise' : 'counter-clockwise'})`, '600 10.5px ' + FONT, '#0b3a75', 'bottom');
   }
 
+  const showGeom = () => !printing && ui.tab === 'carrier';
+
   /* editable value on the drawing ("chip") */
   function chip(px, py, text, path, value, align) {
-    // wall / flange thickness and ring heights are shown only while the "Type" tab is open (not in the report)
-    if (/(^carrier\.rings\.\d+\.(thickness|height)|flangeThickness)$/.test(path) && (printing || ui.tab !== 'carrier')) return;
+    // geometry (diameters, thickness, heights, widths, freeboard) is shown only while the "Type" tab is open — never in the report
+    if (/^carrier\./.test(path) && !showGeom()) return;
     label({ id: 'v:' + stableId(path), style: 'chip', ax: px, ay: py, text, path, value, leader: 'moved',
       pos: (w, h) => [align === 'left' ? px : align === 'right' ? px - w : px - w / 2, py - h / 2] });
   }
@@ -800,9 +815,9 @@
       x0 = num(shown[0].diameter) / 2; x1 = c.acrossMax + num(shown[1].thickness) / 1000;
     }
     const spanX = x1 - x0;
-    const padB = full ? 26 + rings.length * 26 : 40;
+    const padB = full ? (showGeom() ? 26 + rings.length * 26 : 30) : 40;
     const world = { x0: x0 - spanX * 0.03, x1: x1 + spanX * 0.03, y0: -hMax * 0.03, y1: hMax * 1.02 };
-    const v = makeView(world, W, H, { l: 46, r: 150, t: full ? 70 : 70, b: padB });
+    const v = makeView(world, W, H, { l: 46, r: 150, t: showGeom() ? 70 : 34, b: padB });
     drawAxes(v, 'Radius from centre (m)', 'Height above floor (m)', { noX: full, yMax: hMax });
     rect(v, world.x0, world.y0, world.x1, 0, '#dfe7f0');
     const sides = full ? [1, -1] : [1];
@@ -852,7 +867,7 @@
       if (k === 0) {
         const wallH = c.wallHeight;
         const px = full ? v.X(-c.acrossMin) - 8 : v.X(c.acrossMax) - 8;
-        if ((wallH - c.stackMax) * v.s > 10) dimLine(px, v.Y(wallH), px, v.Y(c.stackMax));
+        if (showGeom() && (wallH - c.stackMax) * v.s > 10) dimLine(px, v.Y(wallH), px, v.Y(c.stackMax));
         chip(px - 6, (v.Y(wallH) + v.Y(c.stackMax)) / 2 + (full ? 0 : 14), `Freeboard ${fmt(num(state.carrier.freeboard), 2)} m`, 'carrier.freeboard', state.carrier.freeboard, 'right');
       }
     });
@@ -862,11 +877,11 @@
       const pxR = v.X((ri + ro) / 2), pxL = v.X(-(ri + ro) / 2), top = v.Y(h);
       const pxA = full ? pxL : pxR; // annotation side
       chip(pxA, top - 12, `H ${fmt(h, 2)} m`, `carrier.rings.${r._i}.height`, r.height);
-      textLabel(`ringname:${r.id}`, pxA, full ? top - 50 : top - 24, r.name || '', '700 10.5px ' + FONT, '#000', 'bottom');
+      textLabel(`ringname:${r.id}`, pxA, showGeom() ? (full ? top - 50 : top - 24) : top - 5, r.name || '', '700 10.5px ' + FONT, '#000', 'bottom');
       if (full) {
         chip(pxL, top - 32, `t ${fmt(num(r.thickness), 0)} mm`, `carrier.rings.${r._i}.thickness`, r.thickness);
         const py = v.Y(world.y0) + 16 + k * 26;
-        dimLine(v.X(-ri), py, v.X(ri), py, [v.Y(0), v.Y(0)]);
+        if (showGeom()) dimLine(v.X(-ri), py, v.X(ri), py, [v.Y(0), v.Y(0)]);
         chip(v.X(0), py, `Ø ${fmt(num(r.diameter), 2)} m  ${r.name || ''}`, `carrier.rings.${r._i}.diameter`, r.diameter);
       } else {
         chip(pxR, top - 42, `Ø ${fmt(num(r.diameter), 2)} m`, `carrier.rings.${r._i}.diameter`, r.diameter);
@@ -949,7 +964,7 @@
       textLabel(`baytitle:${(d.bays[c.index] || {}).id}`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(Rf) - 4, `${c.name} · ${cr.fill.layers} layers`, '600 11.5px ' + FONT, INK, 'bottom');
       // bay width
       const py = v.Y(Rb) + (v.Y(y0) - v.Y(Rb)) * 0.33;
-      dimLine(v.X(c.acrossMin), py, v.X(c.acrossMax), py);
+      if (showGeom()) dimLine(v.X(c.acrossMin), py, v.X(c.acrossMax), py);
       chip(v.X((c.acrossMin + c.acrossMax) / 2), py, `W ${fmt(c.acrossMax - c.acrossMin, 2)} m`, `carrier.drum.bays.${c.index}.width`, d.bays[c.index].width);
       if (k === 0) chip(v.X(c.acrossMax) - 4, v.Y(c.stackMax) - 11, `Freeboard ${fmt(num(d.freeboard), 2)} m`, 'carrier.drum.freeboard', d.freeboard, 'right');
     });
@@ -1560,6 +1575,46 @@
   /* ================================================================== */
   /* A4 report                                                           */
   /* ================================================================== */
+  /* ---------- report logos ---------- */
+  const logoCache = new Map();
+  function ensureLogos() {
+    (state.info.logos || []).forEach(l => {
+      if (logoCache.has(l.src)) return;
+      const im = new Image();
+      im.onload = () => { reportBuiltAt = 0; };
+      im.src = l.src;
+      logoCache.set(l.src, im);
+    });
+  }
+  function logoCanvas(l) {
+    const im = l && logoCache.get(l.src);
+    if (!im || !im.complete || !im.naturalWidth) return null;
+    const cv = document.createElement('canvas');
+    cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+    cv.getContext('2d').drawImage(im, 0, 0);
+    return cv;
+  }
+  function addLogoFiles(files) {
+    [...files].filter(f => /^image\//.test(f.type)).forEach(f => {
+      const rd = new FileReader();
+      rd.onload = () => {
+        const im = new Image();
+        im.onload = () => {
+          // keep the project light: logos are stored at most 600 × 200 px
+          const k = Math.min(1, 600 / (im.naturalWidth || 600), 200 / (im.naturalHeight || 200));
+          const cv = document.createElement('canvas');
+          cv.width = Math.max(1, Math.round((im.naturalWidth || 600) * k)); cv.height = Math.max(1, Math.round((im.naturalHeight || 200) * k));
+          cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+          state.info.logos = (state.info.logos || []).concat([{ id: uid(), name: f.name, src: cv.toDataURL('image/png') }]);
+          ensureLogos(); autosave(); reportBuiltAt = 0;
+          if (ui.tab === 'settings') renderTab();
+        };
+        im.src = rd.result;
+      };
+      rd.readAsDataURL(f);
+    });
+  }
+
   function buildReport() {
     if (!result) return;
     const i = state.info, c = state.carrier, w = state.winding, t = result.totals;
@@ -1573,7 +1628,7 @@
     const W = 1000;
     const img1 = renderImage('section', 'all', W, coil ? 560 : 520);
     const img2 = [];
-    if (coil) img2.push({ src: renderImage('plan', 'all', 520, 520), cap: 'Plan view — top two layers' });
+    if (coil) img2.push({ src: renderImage('plan', 'all', 720, 520), cap: 'Plan view — top two layers' });
     else result.compartments.slice(0, 3).forEach(cr => img2.push({ src: renderImage('side', String(cr.comp.index), 420, 420), cap: `Side view from the ${state.winding.startSide === 'right' ? 'right' : 'left'} flange (start side) — ${cr.comp.name}` }));
 
     const kpi = (k, v, cls) => `<div class="rk ${cls || ''}"><div class="rk-k">${k}</div><div class="rk-v">${v}</div></div>`;
@@ -1636,35 +1691,68 @@
 
     const legend = state.sections.map((s, k) => `<span><i style="background:${esc(sectionColor(k))}"></i>${esc(s.name)}</span>`).join('');
 
+    const docNo = i.reference || '—', rev = i.revision || '0';
+    const equipment = `${c.name ? c.name + ' — ' : ''}${typeLabel}`;
+    const summary = `${fmt(t.length, 0)} m of cable (${fmt(t.weight, 1)} t) in ${state.sections.length} section${state.sections.length > 1 ? 's' : ''}, loaded in ${result.compartments.length} ${coil ? 'compartment' : 'bay'}${result.compartments.length > 1 ? 's' : ''}` +
+      `${t.loadPct !== null ? `, i.e. ${fmt(t.loadPct * 100, 1)} % of the SWL` : ''}. Spare capacity: ${fmt(sp.len, 0)} m${sp.byWeight ? ' (limited by the SWL)' : ''}.`;
+    const tb = (k, v) => `<td class="tb-k">${esc(k)}</td><td class="tb-v">${esc(v || '—')}</td>`;
+    let n = 0; const H = t => `<h2 class="rp-h"><span>${++n}.</span> ${t}</h2>`;
+
     $('report').innerHTML = `<div class="rp">
-      <header class="rp-head">
-        <div class="rp-logo"><svg width="34" height="34" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#fff"/><circle cx="16" cy="16" r="10" fill="none" stroke="#1565c0" stroke-width="2.5"/><circle cx="16" cy="16" r="5.5" fill="none" stroke="#1565c0" stroke-width="2.5"/></svg></div>
-        <div class="rp-title"><div class="rp-kicker">Cable loading plan</div><h1>${esc(state.name || 'Untitled project')}</h1></div>
-        <table class="rp-meta"><tr><td>Reference</td><td>${esc(i.reference || '–')}</td></tr><tr><td>Date</td><td>${esc(i.date || '–')}</td></tr><tr><td>Prepared by</td><td>${esc(i.preparedBy || '–')}</td></tr></table>
+      <header class="rp-top">
+        <div class="rp-logos">${(i.logos || []).length ? (i.logos || []).map((l, k) => `<span class="rp-logo-c" data-logo="${k}"></span>`).join('') : '<span class="rp-nologo">Cable Loading Planner</span>'}</div>
+        <div class="rp-ttl"><div class="rp-doc-type">Cable loading plan</div><h1>${esc(state.name || 'Untitled project')}</h1><div class="rp-sub">${esc(equipment)}${i.vessel ? ' · ' + esc(i.vessel) : ''}</div></div>
+        <table class="rp-docbox"><tr><td>Document No.</td><td>${esc(docNo)}</td></tr><tr><td>Revision</td><td>${esc(rev)}</td></tr><tr><td>Date</td><td>${esc(i.date || '—')}</td></tr><tr><td>Status</td><td class="st ${t.status}">${t.status === 'ok' ? 'OK' : t.status === 'warn' ? 'TO CHECK' : 'NOT OK'}</td></tr></table>
       </header>
-      <table class="rp-info rp-info-full">${info.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1] || '–')}</td></tr>`).join('')}</table>
+      <table class="rp-tblock">
+        <tr>${tb('Client / project', i.client)}${tb('Vessel / site', i.vessel)}</tr>
+        <tr>${tb('Equipment', equipment)}${tb('Max. cable load (SWL)', num(c.maxLoad) ? fmt(num(c.maxLoad), 1) + ' t' : '')}</tr>
+        <tr>${tb('Empty weight (tare)', num(c.tare) ? fmt(num(c.tare), 1) + ' t' : '')}${tb('Coiling / winding', `${w.stacking === 'nested' ? 'Nested' : 'Square'} · turn gap ${fmt(num(w.turnGapPct), 1)} % OD ${gapMm(w.turnGapPct)} · layer gap ${fmt(num(w.layerGapPct), 1)} % OD`)}</tr>
+        <tr>${tb('Prepared by', i.preparedBy)}${tb('Checked by', i.checkedBy)}</tr>
+      </table>
+
+      ${H('Summary')}
+      <p class="rp-lead">${esc(summary)}</p>
       <section class="rp-kpis">${kpis}</section>
-      <figure class="rp-fig"><div class="rp-canvas" data-fig="0"></div><figcaption>Figure 1 — ${coil ? 'Cross-section through the centre (full diameter)' : 'Cross-section along the drum axis'}. Red dashed line = freeboard limit.</figcaption></figure>
+
+      ${H('Loading drawings')}
+      <figure class="rp-fig"><div class="rp-canvas" data-fig="0"></div><figcaption><b>Figure 1</b> — ${coil ? 'Cross-section through the centre (full diameter)' : 'Cross-section along the drum axis'}. Red dashed line = maximum stack (freeboard limit).</figcaption></figure>
       <div class="rp-legend">${legend}</div>
       <section class="rp-two">
-        <div class="rp-figs">${img2.map((im, k) => `<figure class="rp-fig small"><div class="rp-canvas" data-fig="${k + 1}"></div><figcaption>Figure ${k + 2} — ${esc(im.cap)}</figcaption></figure>`).join('')}</div>
-        <div class="rp-gauges"><h2>Fill per ${coil ? 'compartment' : 'bay'}</h2>${$('gauges').innerHTML}</div>
+        <div class="rp-figs">${img2.map((im, k) => `<figure class="rp-fig small"><div class="rp-canvas" data-fig="${k + 1}"></div><figcaption><b>Figure ${k + 2}</b> — ${esc(im.cap)}</figcaption></figure>`).join('')}</div>
+        <div class="rp-gauges"><h3>Fill per ${coil ? 'compartment' : 'bay'}</h3>${$('gauges').innerHTML}</div>
       </section>
-      <h2 class="rp-h">1. Cable sections — start and end positions</h2>${sec}
-      <p class="mut small">Inner end = first end loaded (bottom of the coil / on the barrel). Outer end = last end loaded. "Off" = order in which the sections come off the ${coil ? 'compartment' : 'bay'}.</p>
-      <h2 class="rp-h">2. ${coil ? 'Compartments' : 'Bays'}</h2>${comp}
-      <div class="rp-cols"><div><h2 class="rp-h">3. Carrier geometry</h2>${geo}</div><div><h2 class="rp-h">4. Cables</h2>${cabT}</div></div>
-      <h2 class="rp-h">5. Maximum capacity (each cable alone, empty carrier)</h2>${capT}
-      <h2 class="rp-h">6. Assumptions and notes</h2>
-      <ul class="rp-notes"><li>Turn-by-turn simulation, layers alternate direction; ${w.stacking === 'nested' ? 'nested stacking (layer pitch 0.866 × OD)' : 'square stacking (layer pitch 1.0 × OD)'}, turn gap ${fmt(num(w.turnGapPct), 1)} % of OD ${gapMm(w.turnGapPct)}, layer gap ${fmt(num(w.layerGapPct), 1)} % of OD ${gapMm(w.layerGapPct)}.</li>
+
+      ${H('Cable sections — start and end positions')}${sec}
+      <p class="mut small">Inner end = first end loaded (bottom of the coil / on the barrel). Outer end = last end loaded. "Off" = order in which the sections come off the ${coil ? 'compartment' : 'bay'}. Top = highest point of the section.</p>
+      ${H(coil ? 'Compartments' : 'Bays')}${comp}
+      <div class="rp-cols"><div>${H('Equipment geometry')}${geo}</div><div>${H('Cables')}${cabT}</div></div>
+      ${H('Maximum capacity (each cable alone, empty equipment)')}${capT}
+      ${H('Assumptions and notes')}
+      <ul class="rp-notes"><li>Turn-by-turn simulation, layers alternate direction; ${w.stacking === 'nested' ? 'nested stacking (layer pitch 0.866 × OD)' : 'square stacking (layer pitch 1.0 × OD)'}, turn gap ${fmt(num(w.turnGapPct), 1)} % of OD ${gapMm(w.turnGapPct)}, layer gap ${fmt(num(w.layerGapPct), 1)} % of OD ${gapMm(w.layerGapPct)}; rotation ${w.rotation === 'ccw' ? 'counter-clockwise' : 'clockwise'} ${coil ? 'seen from above' : 'seen from the start flange'}.</li>
         <li>Freeboard ${fmt(num(coil ? c.freeboard : c.drum.freeboard), 2)} m kept below the ${coil ? 'top of the walls' : 'flange rim'}. Working capacity taken as ≈ 80 % of the theoretical capacity.</li>
-        <li>Planning aid only: check against the carrier drawings, the cable data sheets and the loading procedure.</li>${i.notes ? `<li>${esc(i.notes)}</li>` : ''}</ul>
-      <h2 class="rp-h">7. Conclusion</h2>
+        <li>Planning aid only: to be checked against the equipment drawings, the cable data sheets and the loading procedure.</li>${i.notes ? `<li>${esc(i.notes)}</li>` : ''}</ul>
+      ${H('Conclusion')}
       <div class="rp-status ${t.status}"><div class="rp-status-t">${statusTxt}</div>${checks.map(ch => `<div class="ln ${ch.level}">${esc(ch.text)}</div>`).join('')}</div>
-      <table class="rp-sign"><tr><th></th><th>Name</th><th>Date</th><th>Signature</th></tr><tr><td>Prepared</td><td>${esc(i.preparedBy)}</td><td>${esc(i.date)}</td><td></td></tr><tr><td>Checked</td><td></td><td></td><td></td></tr><tr><td>Approved</td><td></td><td></td><td></td></tr></table>
+
+      <table class="rp-rev">
+        <thead><tr><th>Rev.</th><th>Date</th><th>Description</th><th>Prepared</th><th>Checked</th><th>Approved</th></tr></thead>
+        <tbody><tr><td>${esc(rev)}</td><td>${esc(i.date || '')}</td><td>${esc(i.revDescription || 'Issued for use')}</td><td>${esc(i.preparedBy || '')}</td><td>${esc(i.checkedBy || '')}</td><td>${esc(i.approvedBy || '')}</td></tr>
+        <tr class="sig"><td colspan="3">Signatures</td><td></td><td></td><td></td></tr></tbody>
+      </table>
     </div>`;
     const figs = [img1].concat(img2.map(im => im.src));
-    $('report').querySelectorAll('.rp-canvas').forEach(el => { const c = figs[+el.dataset.fig]; if (c) el.appendChild(c); });
+    $('report').querySelectorAll('.rp-canvas').forEach(el => { const cv = figs[+el.dataset.fig]; if (cv) el.appendChild(cv); });
+    // logos are drawn on canvases from images decoded beforehand, so they always print
+    $('report').querySelectorAll('.rp-logo-c').forEach(el => { const cv = logoCanvas((i.logos || [])[+el.dataset.logo]); if (cv) el.appendChild(cv); });
+    // running header / footer on every printed page
+    const pg = $('pageStyle') || document.head.appendChild(Object.assign(document.createElement('style'), { id: 'pageStyle' }));
+    const q = v => '"' + String(v).replace(/["\\]/g, '\\$&').replace(/\n/g, ' ') + '"';
+    pg.textContent = `@media print { @page {
+      @top-left { content: ${q('Cable loading plan — ' + (state.name || ''))}; font: 7.5pt system-ui, sans-serif; color: #5a7391; }
+      @top-right { content: ${q(`${docNo} · Rev. ${rev}`)}; font: 7.5pt system-ui, sans-serif; color: #5a7391; }
+      @bottom-left { content: ${q((i.client ? i.client + ' · ' : '') + 'Cable Loading Planner')}; font: 7.5pt system-ui, sans-serif; color: #8aa1ba; }
+      @bottom-right { content: "Page " counter(page) " / " counter(pages); font: 7.5pt system-ui, sans-serif; color: #8aa1ba; } } }`;
     reportBuiltAt = Date.now();
   }
 
