@@ -287,15 +287,6 @@
         if (above > maxL) checks.push(chk('fail', `Section "${s.name}": ${above} layers on top of its lowest layer > crush limit of ${maxL} layers (${cab.name}).`));
       }
     });
-    // coiling direction vs armour lay: S (left-hand) lay is coiled clockwise, Z (right-hand) lay counter-clockwise
-    const rot = winding.rotation === 'ccw' ? 'ccw' : 'cw';
-    const usedCables = new Set(secRes.filter(sr => sr.cable && sr.placed > 0).map(sr => sr.cable));
-    usedCables.forEach(cab => {
-      const lay = cab.armourLay;
-      if (lay !== 'S' && lay !== 'Z') return;
-      const expected = lay === 'S' ? 'cw' : 'ccw';
-      if (expected !== rot) checks.push(chk('warn', `${cab.name}: ${lay === 'S' ? 'S (left-hand)' : 'Z (right-hand)'} armour lay is normally coiled ${expected === 'cw' ? 'clockwise' : 'counter-clockwise'}, but the loading plan is set to ${rot === 'cw' ? 'clockwise' : 'counter-clockwise'}. Check the manufacturer's handling specification.`));
-    });
     const maxLoad = num(carrier.maxLoad, 0);
     if (maxLoad > 0) {
       const ratio = totalWeight / maxLoad;
