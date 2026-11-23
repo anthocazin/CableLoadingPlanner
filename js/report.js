@@ -60,7 +60,7 @@
     B.push({ id: 'ident', name: 'Project information', w: CW, html: `<table class="rt-kv">
       <tr>${kv('Client / project', i.client)}${kv('Vessel / site', i.vessel)}</tr>
       <tr>${kv('Equipment', equipment)}${kv('Max. cable load (SWL)', num(c.maxLoad) ? fmt(num(c.maxLoad), 1) + ' t' : '')}</tr>
-      <tr>${kv('Empty weight (tare)', num(c.tare) ? fmt(num(c.tare), 1) + ' t' : '')}${kv('Coiling', `${w.stacking === 'nested' ? 'Nested' : 'Square'} stacking, ${rot}`)}</tr>
+      <tr>${kv('Empty weight (tare)', num(c.tare) ? fmt(num(c.tare), 1) + ' t' : '')}${kv('Coiling direction', rot.charAt(0).toUpperCase() + rot.slice(1))}</tr>
       <tr>${kv('Prepared by', i.preparedBy)}${kv('Checked by', i.checkedBy)}</tr></table>` });
 
     const summary = `This plan covers ${fmt(t.length, 0)} m of cable (${fmt(t.weight, 1)} t) in ${st.sections.length} section${st.sections.length > 1 ? 's' : ''}, loaded in ${res.compartments.length} ${unitC}${res.compartments.length > 1 ? 's' : ''} of ${esc(equipment)}${t.loadPct !== null ? `, i.e. ${fmt(t.loadPct * 100, 1)} % of the maximum cable load` : ''}. The cable is coiled ${rot}.`;
