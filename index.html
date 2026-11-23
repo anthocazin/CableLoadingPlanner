@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cable Loading Planner</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230f2742'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23e8822a' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='none' stroke='%23e8822a' stroke-width='2.5'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230b3a75'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%231565c0' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='5.5' fill='none' stroke='%231565c0' stroke-width='2.5'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 <header class="topbar">
   <div class="brand">
-    <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#173a5e"/><circle cx="16" cy="16" r="10" fill="none" stroke="#e8822a" stroke-width="2.5"/><circle cx="16" cy="16" r="5.5" fill="none" stroke="#e8822a" stroke-width="2.5"/><circle cx="16" cy="16" r="1.8" fill="#fff"/></svg>
+    <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#fff"/><circle cx="16" cy="16" r="10" fill="none" stroke="#1565c0" stroke-width="2.5"/><circle cx="16" cy="16" r="5.5" fill="none" stroke="#1565c0" stroke-width="2.5"/><circle cx="16" cy="16" r="1.8" fill="#1565c0"/></svg>
     <div><div class="brand-name">Cable Loading Planner</div><div class="brand-sub">Turntable · Static tank · Cable drum</div></div>
   </div>
   <input class="project-name" id="projectName" placeholder="Project name" aria-label="Project name">
@@ -33,7 +33,7 @@
 <main class="layout">
   <aside class="panel inputs no-print">
     <nav class="tabs" id="tabs">
-      <button data-tab="carrier" class="active"><span class="n">1</span>Carrier</button>
+      <button data-tab="carrier" class="active"><span class="n">1</span>Type</button>
       <button data-tab="cables"><span class="n">2</span>Cables</button>
       <button data-tab="plan"><span class="n">3</span>Loading plan</button>
       <button data-tab="settings"><span class="n">4</span>Settings</button>
@@ -42,7 +42,6 @@
   </aside>
 
   <section class="results">
-    <div class="print-only" id="reportHead"></div>
     <div id="statusBox"></div>
 
     <div class="panel">
@@ -52,6 +51,7 @@
         <select id="zoomSelect" class="no-print" aria-label="Zoom"></select>
         <label class="no-print"><input type="checkbox" id="showLabels" checked> Labels</label>
       </div>
+      <div class="viz-hint no-print">Click a <span class="chip-demo">value ✎</span> on the drawing to change it. Hover a turn for details.</div>
       <div class="canvas-wrap" id="canvasWrap">
         <canvas id="canvas"></canvas>
         <div class="tooltip" id="tooltip"></div>
@@ -78,6 +78,8 @@
     <div class="disclaimer">Planning aid only. Results assume regular winding/coiling with the stacking and gaps set in Settings. Check against the carrier drawings, cable data sheets and the loading procedure; real capacity depends on coiling quality and transitions.</div>
   </section>
 </main>
+
+<div id="report" class="report"></div>
 
 <script src="js/engine.js"></script>
 <script src="js/app.js"></script>

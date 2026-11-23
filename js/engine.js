@@ -23,11 +23,11 @@
   /* ------------------------------------------------------------------ */
   /*
    * Coil carriers (turntable / tank): a list of concentric rings ("cerces"), from the core outwards.
-   *   ring = { name, diameter (inner face Ø, m), thickness (mm), height (m) }
+   *   ring = { name, diameter (inner face Ø, m), thickness (m), height (m) }
    *   compartment k lies between the outer face of ring k and the inner face of ring k+1.
    *   across = radius (m), stack = height above floor (m).
    * Drum: barrel + flanges ("joues"); intermediate flanges split the width into bays.
-   *   drum = { barrelDiameter, flangeDiameter, flangeThickness (mm), freeboard, bays: [{ name, width }] }
+   *   drum = { barrelDiameter, flangeDiameter, flangeThickness (m), freeboard, bays: [{ name, width }] }
    *   across = axial position from the inner face of the first flange (m), stack = radius (m).
    */
   function compartments(carrier) {
@@ -38,7 +38,7 @@
       const fb = num(carrier.freeboard, 0);
       for (let k = 0; k < rings.length - 1; k++) {
         const a = rings[k], b = rings[k + 1];
-        const rMin = num(a.diameter) / 2 + num(a.thickness) / 1000;
+        const rMin = num(a.diameter) / 2 + num(a.thickness); // thickness in m
         const rMax = num(b.diameter) / 2;
         const wallH = Math.min(num(a.height), num(b.height));
         out.push({
@@ -55,7 +55,7 @@
       }
     } else {
       const d = carrier.drum || {};
-      const tFl = num(d.flangeThickness) / 1000;
+      const tFl = num(d.flangeThickness); // m
       const Rb = num(d.barrelDiameter) / 2;
       const Rf = num(d.flangeDiameter) / 2;
       const fb = num(d.freeboard, 0);

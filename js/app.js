@@ -3,7 +3,7 @@
   'use strict';
   const { compute, compartments, capacity, capacityMatrix, num, fmt, CARRIER_TYPES } = window.CLP;
   const STORE_KEY = 'cableLoadingPlanner.project.v1';
-  const PALETTE = ['#e8822a', '#3b6ea5', '#1f8f4e', '#8e44ad', '#c0392b', '#16a085', '#d4a017', '#5d6d7e', '#d6408b', '#2c3e8f', '#7f8c2a', '#a0522d'];
+  const PALETTE = ['#1565c0', '#7cb9f2', '#0b2a55', '#2bb3a3', '#f2a541', '#8e6bd1', '#e05d5d', '#9bbf3b', '#4f86c6', '#c2185b', '#00838f', '#795548'];
   const $ = id => document.getElementById(id);
   const esc = s => String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const uid = () => Math.random().toString(36).slice(2, 9);
@@ -13,15 +13,15 @@
   /* Project data                                                        */
   /* ================================================================== */
   const defaultRings = () => [
-    { name: 'Core', diameter: 9, thickness: 25, height: 6.5 },
-    { name: 'Outer wall', diameter: 30, thickness: 25, height: 6.5 },
+    { name: 'Core', diameter: 9, thickness: 0.025, height: 6.5 },
+    { name: 'Outer wall', diameter: 30, thickness: 0.025, height: 6.5 },
   ];
-  const defaultDrum = () => ({ barrelDiameter: 2.8, flangeDiameter: 4.6, flangeThickness: 40, freeboard: 0.1, bays: [{ name: 'Bay 1', width: 1.4 }] });
+  const defaultDrum = () => ({ barrelDiameter: 2.8, flangeDiameter: 4.6, flangeThickness: 0.04, freeboard: 0.1, bays: [{ name: 'Bay 1', width: 1.4 }] });
   const info = () => ({ client: '', vessel: '', preparedBy: '', date: today(), reference: '', notes: '' });
 
   const EXAMPLES = {
     turntable: () => ({
-      name: 'Export cable — 5 000 t turntable',
+      schema: 2, name: 'Export cable — 5 000 t turntable',
       info: Object.assign(info(), { client: 'Offshore Wind Farm', vessel: 'Cable Lay Vessel', reference: 'EXP-LOAD-001' }),
       carrier: { type: 'turntable', name: 'Main turntable', maxLoad: 5000, tare: 0, freeboard: 0.3, rings: defaultRings(), drum: defaultDrum() },
       winding: { stacking: 'square', turnGap: 5, layerGap: 0, startSide: 'outer' },
@@ -33,14 +33,14 @@
       ],
     }),
     tank: () => ({
-      name: 'Inter-array cables — static tank',
+      schema: 2, name: 'Inter-array cables — static tank',
       info: Object.assign(info(), { client: 'Offshore Wind Farm', vessel: 'Cable Lay Vessel', reference: 'IAC-TANK-01' }),
       carrier: {
         type: 'tank', name: 'Static tank T1', maxLoad: 2500, tare: 0, freeboard: 0.2,
         rings: [
-          { name: 'Core', diameter: 6, thickness: 20, height: 4 },
-          { name: 'Inner cerce', diameter: 14, thickness: 20, height: 4 },
-          { name: 'Outer wall', diameter: 22, thickness: 20, height: 4.5 },
+          { name: 'Core', diameter: 6, thickness: 0.02, height: 4 },
+          { name: 'Inner cerce', diameter: 14, thickness: 0.02, height: 4 },
+          { name: 'Outer wall', diameter: 22, thickness: 0.02, height: 4.5 },
         ],
         drum: defaultDrum(),
       },
@@ -57,12 +57,12 @@
       ],
     }),
     drum: () => ({
-      name: '33 kV cable — split drum',
+      schema: 2, name: '33 kV cable — split drum',
       info: Object.assign(info(), { reference: 'DRUM-0425' }),
       carrier: { type: 'drum', name: 'Drum D-4600', maxLoad: 60, tare: 12, freeboard: 0.3, rings: defaultRings(),
-        drum: { barrelDiameter: 2.8, flangeDiameter: 4.6, flangeThickness: 40, freeboard: 0.1, bays: [{ name: 'Bay A', width: 1.4 }, { name: 'Bay B', width: 1.4 }] } },
+        drum: { barrelDiameter: 2.8, flangeDiameter: 4.6, flangeThickness: 0.04, freeboard: 0.1, bays: [{ name: 'Bay A', width: 1.4 }, { name: 'Bay B', width: 1.4 }] } },
       winding: { stacking: 'square', turnGap: 0, layerGap: 0, startSide: 'left' },
-      cables: [{ id: 'c1', name: '33 kV 3C 185 mm²', od: 110, weight: 18, mbr: 1.3, maxLayers: 0, color: '#e8822a' }],
+      cables: [{ id: 'c1', name: '33 kV 3C 185 mm²', od: 110, weight: 18, mbr: 1.3, maxLayers: 0, color: '#1565c0' }],
       sections: [
         { id: uid(), name: 'Cable A', cableId: 'c1', length: 900, compartment: 0, color: PALETTE[0] },
         { id: uid(), name: 'Cable B', cableId: 'c1', length: 650, compartment: 1, color: PALETTE[1] },
@@ -70,7 +70,7 @@
     }),
   };
   const emptyProject = () => ({
-    name: '', info: info(),
+    schema: 2, name: '', info: info(),
     carrier: { type: 'turntable', name: '', maxLoad: 0, tare: 0, freeboard: 0.3, rings: defaultRings(), drum: defaultDrum() },
     winding: { stacking: 'square', turnGap: 5, layerGap: 0, startSide: 'outer' },
     cables: [{ id: uid(), name: 'Cable 1', od: 150, weight: 40, mbr: 2, maxLayers: 0, color: PALETTE[1] }],
@@ -79,12 +79,18 @@
 
   function normalise(p) {
     const base = emptyProject();
+    const legacyMm = p && !p.schema; // version 1 stored ring / flange thicknesses in mm
     p = Object.assign(base, p || {});
+    p.schema = 2;
     p.info = Object.assign(info(), p.info || {});
     p.carrier = Object.assign(emptyProject().carrier, p.carrier || {});
     if (!Array.isArray(p.carrier.rings) || p.carrier.rings.length < 2) p.carrier.rings = defaultRings();
     p.carrier.drum = Object.assign(defaultDrum(), p.carrier.drum || {});
     if (!Array.isArray(p.carrier.drum.bays) || !p.carrier.drum.bays.length) p.carrier.drum.bays = defaultDrum().bays;
+    if (legacyMm) {
+      p.carrier.rings.forEach(r => { r.thickness = num(r.thickness) / 1000; });
+      p.carrier.drum.flangeThickness = num(p.carrier.drum.flangeThickness) / 1000;
+    }
     p.winding = Object.assign(emptyProject().winding, p.winding || {});
     p.cables = Array.isArray(p.cables) ? p.cables : [];
     p.sections = Array.isArray(p.sections) ? p.sections : [];
@@ -109,9 +115,9 @@
   /* Input panel                                                         */
   /* ================================================================== */
   const ICONS = {
-    turntable: '<svg width="34" height="22" viewBox="0 0 34 22"><ellipse cx="17" cy="16" rx="15" ry="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 8v8M32 8v8" stroke="currentColor" stroke-width="1.5"/><ellipse cx="17" cy="8" rx="15" ry="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><ellipse cx="17" cy="8" rx="5" ry="1.5" fill="none" stroke="#e8822a" stroke-width="1.5"/><path d="M17 18v3M12 21h10" stroke="currentColor" stroke-width="1.5"/></svg>',
-    tank: '<svg width="34" height="22" viewBox="0 0 34 22"><path d="M2 5v12M32 5v12" stroke="currentColor" stroke-width="1.5"/><ellipse cx="17" cy="5" rx="15" ry="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 17a15 3.5 0 0 0 30 0" fill="none" stroke="currentColor" stroke-width="1.5"/><ellipse cx="17" cy="5" rx="8" ry="1.9" fill="none" stroke="#e8822a" stroke-width="1.3"/><ellipse cx="17" cy="5" rx="3.5" ry=".9" fill="none" stroke="#e8822a" stroke-width="1.3"/></svg>',
-    drum: '<svg width="34" height="22" viewBox="0 0 34 22"><circle cx="11" cy="11" r="9.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="11" r="5" fill="none" stroke="#e8822a" stroke-width="1.5"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><path d="M11 1.5h12a9.5 9.5 0 0 1 0 19H11" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+    turntable: '<svg width="34" height="22" viewBox="0 0 34 22"><ellipse cx="17" cy="16" rx="15" ry="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 8v8M32 8v8" stroke="currentColor" stroke-width="1.5"/><ellipse cx="17" cy="8" rx="15" ry="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><ellipse cx="17" cy="8" rx="5" ry="1.5" fill="none" stroke="#1565c0" stroke-width="1.5"/><path d="M17 18v3M12 21h10" stroke="currentColor" stroke-width="1.5"/></svg>',
+    tank: '<svg width="34" height="22" viewBox="0 0 34 22"><path d="M2 5v12M32 5v12" stroke="currentColor" stroke-width="1.5"/><ellipse cx="17" cy="5" rx="15" ry="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2 17a15 3.5 0 0 0 30 0" fill="none" stroke="currentColor" stroke-width="1.5"/><ellipse cx="17" cy="5" rx="8" ry="1.9" fill="none" stroke="#1565c0" stroke-width="1.3"/><ellipse cx="17" cy="5" rx="3.5" ry=".9" fill="none" stroke="#1565c0" stroke-width="1.3"/></svg>',
+    drum: '<svg width="34" height="22" viewBox="0 0 34 22"><circle cx="11" cy="11" r="9.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="11" r="5" fill="none" stroke="#1565c0" stroke-width="1.5"/><circle cx="11" cy="11" r="1.5" fill="currentColor"/><path d="M11 1.5h12a9.5 9.5 0 0 1 0 19H11" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
   };
 
   function field(label, path, value, opts) {
@@ -132,10 +138,10 @@
       `<button data-action="type" data-value="${t}" class="${c.type === t ? 'active' : ''}">${ICONS[t]}<span>${CARRIER_TYPES[t].label}</span></button>`).join('') + '</div>';
     h += '<div class="grid2">' + field('Carrier name / ID', 'carrier.name', c.name, { type: 'text', full: true, placeholder: 'e.g. Turntable 1' }) +
       field('Max. cable load (SWL)', 'carrier.maxLoad', c.maxLoad, { unit: 't' }) +
-      field('Tare (empty carrier)', 'carrier.tare', c.tare, { unit: 't' }) + '</div>';
+      field(kind() === 'coil' ? 'Empty weight (tare)' : 'Empty drum weight (tare)', 'carrier.tare', c.tare, { unit: 't' }) + '</div>';
     if (kind() === 'coil') {
       h += '<h3>Rings / cerces (from the core outwards)</h3>';
-      h += '<table class="edit"><thead><tr><th>Name</th><th>Inner Ø (m)</th><th>Wall (mm)</th><th>Height (m)</th><th></th></tr></thead><tbody>';
+      h += '<table class="edit"><thead><tr><th>Name</th><th>Inner Ø (m)</th><th>Wall thk (m)</th><th>Height (m)</th><th></th></tr></thead><tbody>';
       c.rings.forEach((r, i) => {
         h += `<tr><td><input data-bind="carrier.rings.${i}.name" data-type="text" value="${esc(r.name)}"></td>
           <td><input type="number" step="any" min="0" data-bind="carrier.rings.${i}.diameter" data-type="num" data-rerender="sortRings" value="${esc(r.diameter)}"></td>
@@ -144,15 +150,15 @@
           <td><button class="icon-btn del" data-action="delRing" data-i="${i}" title="Remove ring" ${c.rings.length <= 2 ? 'disabled' : ''}>✕</button></td></tr>`;
       });
       h += '</tbody></table><button class="btn add" data-action="addRing">+ Add a ring / cerce (creates a compartment)</button>';
-      h += '<div class="grid2" style="margin-top:10px">' + field('Freeboard (below wall top)', 'carrier.freeboard', c.freeboard, { unit: 'm' }) + '</div>';
-      h += '<div class="hint">Inner Ø = diameter of the cable-side face of the ring. Each space between two rings is a compartment. The first ring is the core (inner cone), the last one the outer wall. Usable stack height = lower of the two wall heights − freeboard.</div>';
+      h += '<div class="grid2" style="margin-top:10px">' + field('Freeboard', 'carrier.freeboard', c.freeboard, { unit: 'm' }) + '</div>';
+      h += '<div class="hint"><b>Freeboard</b> = clearance kept between the top of the cable stack and the top of the walls. The cable is never coiled higher than <i>wall height − freeboard</i>: it keeps the top turns inside the walls (vessel motions, loading arm, crossovers).<br><br>Inner Ø = diameter of the cable-side face of the ring. Each space between two rings is a compartment: the first ring is the core, the last one the outer wall. All dimensions in metres. You can also click the dimensions on the drawing to edit them.</div>';
     } else {
       const d = c.drum;
       h += '<h3>Drum geometry</h3><div class="grid2">' +
         field('Barrel (core) Ø', 'carrier.drum.barrelDiameter', d.barrelDiameter, { unit: 'm' }) +
         field('Flange Ø', 'carrier.drum.flangeDiameter', d.flangeDiameter, { unit: 'm' }) +
-        field('Flange thickness', 'carrier.drum.flangeThickness', d.flangeThickness, { unit: 'mm' }) +
-        field('Freeboard (flange rim → top layer)', 'carrier.drum.freeboard', d.freeboard, { unit: 'm' }) + '</div>';
+        field('Flange thickness', 'carrier.drum.flangeThickness', d.flangeThickness, { unit: 'm' }) +
+        field('Freeboard', 'carrier.drum.freeboard', d.freeboard, { unit: 'm' }) + '</div>';
       h += '<h3>Bays between flanges (from left to right)</h3>';
       h += '<table class="edit"><thead><tr><th>Name</th><th>Inner width (m)</th><th></th></tr></thead><tbody>';
       d.bays.forEach((b, i) => {
@@ -161,7 +167,7 @@
           <td><button class="icon-btn del" data-action="delBay" data-i="${i}" title="Remove bay" ${d.bays.length <= 1 ? 'disabled' : ''}>✕</button></td></tr>`;
       });
       h += '</tbody></table><button class="btn add" data-action="addBay">+ Add a bay (adds an intermediate flange)</button>';
-      h += '<div class="hint">Inner width = clear distance between two flanges. Several bays = split drum with intermediate flanges; each bay is loaded independently.</div>';
+      h += '<div class="hint"><b>Freeboard</b> = clearance kept between the top cable layer and the rim of the flanges (radial distance). The cable is never wound above <i>flange radius − freeboard</i>: it protects the cable when the drum is handled, lifted or set down.<br><br>Inner width = clear distance between two flanges. Several bays = split drum with intermediate flanges; each bay is loaded independently. All dimensions in metres. You can also click the dimensions on the drawing to edit them.</div>';
     }
     h += '<h3>Compartments</h3><div class="derived" id="derived"></div>';
     return h;
@@ -225,7 +231,7 @@
       ${field('Gap between layers', 'winding.layerGap', w.layerGap, { unit: 'mm' })}
       <label class="f full">First layer starts at<select data-bind="winding.startSide" data-type="text">${side}</select></label>
     </div>
-    <div class="hint">Layers alternate direction. Use a gap between turns to account for coiling quality (typically 0–10 % of OD in tanks). Nested stacking gives the theoretical maximum; square stacking is the usual planning basis.</div>
+    ${standardBox()}
     <h3>Report information</h3><div class="grid2">
       ${field('Client / project', 'info.client', inf.client, { type: 'text' })}
       ${field('Vessel / site', 'info.vessel', inf.vessel, { type: 'text' })}
@@ -234,6 +240,21 @@
       ${field('Date', 'info.date', inf.date, { type: 'date' })}
       ${field('Notes', 'info.notes', inf.notes, { type: 'textarea', full: true })}
     </div>`;
+  }
+
+  function standardBox() {
+    const ods = state.cables.map(c => num(c.od)).filter(v => v > 0);
+    const maxOD = ods.length ? Math.max(...ods) : 0;
+    const coil = kind() === 'coil';
+    const turnStd = coil ? Math.round(0.05 * maxOD) : 0;
+    return `<div class="std"><div class="std-title">Standard planning values</div>
+      <table>
+        <tr><td>Gap between layers</td><td><b>0 mm</b></td><td>each layer rests directly on the layer below. The layer pitch is then 1.0 × OD (square) or 0.866 × OD (nested, sin 60°).</td></tr>
+        <tr><td>Gap between turns</td><td><b>${coil ? '≈ 5 % OD' : '0 mm'}</b></td><td>${coil ? `allowance for hand coiling in a tank / on a turntable${maxOD ? ` (≈ ${turnStd} mm for Ø ${fmt(maxOD, 0)} mm)` : ''}.` : 'tight, even winding with a level-wind.'}</td></tr>
+        <tr><td>Stacking</td><td><b>Square</b></td><td>conservative basis; nested = theoretical maximum.</td></tr>
+        <tr><td>Working capacity</td><td><b>≈ 80 %</b></td><td>of the theoretical capacity, to allow for imperfect winding.</td></tr>
+      </table>
+      <button class="btn small" data-action="std">Apply standard values</button></div>`;
   }
 
   function renderTab() {
@@ -321,11 +342,18 @@
         ui.zoom = 'all'; ui.view = 'section';
         break;
       }
+      case 'std': {
+        const ods = state.cables.map(x => num(x.od)).filter(v => v > 0);
+        state.winding.layerGap = 0;
+        state.winding.stacking = 'square';
+        state.winding.turnGap = kind() === 'coil' && ods.length ? Math.round(0.05 * Math.max(...ods)) : 0;
+        break;
+      }
       case 'addRing': {
         const last = c.rings[c.rings.length - 1];
         const prev = c.rings[c.rings.length - 2];
         const dNew = (num(prev.diameter) + num(last.diameter)) / 2;
-        c.rings.splice(c.rings.length - 1, 0, { name: 'Cerce ' + (c.rings.length - 1), diameter: Math.round(dNew * 100) / 100, thickness: num(last.thickness) || 20, height: num(last.height) });
+        c.rings.splice(c.rings.length - 1, 0, { name: 'Cerce ' + (c.rings.length - 1), diameter: Math.round(dNew * 100) / 100, thickness: num(last.thickness) || 0.02, height: num(last.height) });
         break;
       }
       case 'delRing': c.rings.splice(i, 1); break;
@@ -386,7 +414,6 @@
     renderSectionsTable();
     renderCompTable();
     renderCapTable();
-    renderReportHead();
     refreshInputMeta();
     autosave();
   }
@@ -398,6 +425,7 @@
     let h = k('Loaded', `${fmt(t.length / 1000, 2)} km`) +
       k('Cable weight', `${fmt(t.weight, 1)} t${t.maxLoad ? ` / ${fmt(t.maxLoad, 0)}` : ''}`, loadCls);
     if (t.loadPct !== null) h += k('Load', `${fmt(t.loadPct * 100, 1)} %`, loadCls);
+    if (num(state.carrier.tare) > 0) h += k(kind() === 'coil' ? 'Total (carrier + cable)' : 'Total drum weight', `${fmt(t.gross, 1)} t`);
     h += k('Spare capacity', `${fmt(t.remaining / 1000, 2)} km`);
     if (t.vcg !== null) h += k('Cable VCG', `${fmt(t.vcg, 2)} m`);
     h += k('Status', t.status === 'ok' ? 'OK' : t.status === 'warn' ? 'Check' : 'NOT OK', t.status);
@@ -438,16 +466,21 @@
   /* Canvas drawing                                                      */
   /* ================================================================== */
   const canvas = $('canvas');
-  const ctx = canvas.getContext('2d');
-  let hit = { mode: null, items: [], view: null }; // for the tooltip
-  const STEEL = '#8b96a3', STEEL_D = '#5d6b7a';
+  const mainCtx = canvas.getContext('2d');
+  let ctx = mainCtx;
+  let CW = 0, CH = 0, printing = false;
+  let hit = { mode: null, items: [], chips: [], view: null };
+  const STEEL = '#a9bccf', STEEL_D = '#5a7391', INK = '#0b3a75', BLUE = '#1a6fd6', LIMIT = '#d64545';
+  const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
 
   function sectionColor(i) { const s = state.sections[i]; return (s && s.color) || PALETTE[i % PALETTE.length]; }
   function turnSection(cr, t) {
-    // section index (global) that holds the biggest share of this turn
     let best = t.segs[0];
     t.segs.forEach(s => { if (s.length > best.length) best = s; });
     return cr.sectionIdx[best.item];
+  }
+  function ringsSorted() {
+    return state.carrier.rings.map((r, i) => Object.assign({}, r, { _i: i })).sort((a, b) => num(a.diameter) - num(b.diameter));
   }
 
   function niceStep(span, target) {
@@ -463,38 +496,34 @@
     const s = Math.min(sx, sy);
     const ox = pad.l + ((W - pad.l - pad.r) - s * (world.x1 - world.x0)) / 2;
     const oy = pad.t + ((H - pad.t - pad.b) - s * (world.y1 - world.y0)) / 2;
-    return {
-      s, world,
-      X: x => ox + (x - world.x0) * s,
-      Y: y => oy + (world.y1 - y) * s,
-      invX: px => world.x0 + (px - ox) / s,
-      invY: py => world.y1 - (py - oy) / s,
-    };
+    return { s, world, X: x => ox + (x - world.x0) * s, Y: y => oy + (world.y1 - y) * s };
   }
 
   function drawAxes(v, xLabel, yLabel, opts) {
     opts = opts || {};
     const w = v.world;
     ctx.save();
-    ctx.strokeStyle = '#c9d1da'; ctx.fillStyle = '#5d6b7a'; ctx.lineWidth = 1;
-    ctx.font = '11px system-ui, sans-serif';
+    ctx.strokeStyle = '#c9d6e4'; ctx.fillStyle = '#5a7391'; ctx.lineWidth = 1;
+    ctx.font = '11px ' + FONT;
     const xs = niceStep(w.x1 - w.x0, 10), ys = niceStep(w.y1 - w.y0, 7);
     const yb = v.Y(w.y0), xl = v.X(w.x0);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    for (let x = Math.ceil(w.x0 / xs) * xs; x <= w.x1 + 1e-9; x += xs) {
-      const px = v.X(x);
-      ctx.beginPath(); ctx.moveTo(px, yb); ctx.lineTo(px, yb + 4); ctx.stroke();
-      ctx.fillText(fmt(Math.abs(x) < 1e-9 ? 0 : x, xs < 1 ? 1 : 0), px, yb + 6);
+    if (!opts.noX) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      for (let x = Math.ceil(w.x0 / xs) * xs; x <= w.x1 + 1e-9; x += xs) {
+        const px = v.X(x);
+        ctx.beginPath(); ctx.moveTo(px, yb); ctx.lineTo(px, yb + 4); ctx.stroke();
+        ctx.fillText(fmt(Math.abs(x) < 1e-9 ? 0 : x, xs < 1 ? 1 : 0), px, yb + 6);
+      }
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(xLabel, (v.X(w.x0) + v.X(w.x1)) / 2, CH - 2);
     }
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    for (let y = Math.ceil(w.y0 / ys) * ys; y <= w.y1 + 1e-9; y += ys) {
+    for (let y = Math.ceil(w.y0 / ys) * ys; y <= (opts.yMax !== undefined ? opts.yMax : w.y1) + 1e-9; y += ys) {
       const py = v.Y(y);
       ctx.beginPath(); ctx.moveTo(xl - 4, py); ctx.lineTo(xl, py); ctx.stroke();
       ctx.fillText(fmt(Math.abs(y) < 1e-9 ? 0 : y, ys < 1 ? 1 : 0), xl - 6, py);
     }
-    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    ctx.fillText(xLabel, (v.X(w.x0) + v.X(w.x1)) / 2, canvas.clientHeight - 2);
-    ctx.save(); ctx.translate(12, (v.Y(w.y0) + v.Y(w.y1)) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'top'; ctx.fillText(yLabel, 0, 0); ctx.restore();
+    ctx.save(); ctx.translate(12, (v.Y(w.y0) + v.Y(w.y1)) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(yLabel, 0, 0); ctx.restore();
     ctx.restore();
   }
 
@@ -509,51 +538,89 @@
   function dashed(v, x0, x1, y, color, label) {
     ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = color; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(v.X(x0), v.Y(y)); ctx.lineTo(v.X(x1), v.Y(y)); ctx.stroke();
-    if (label && ui.labels) { ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = '10.5px system-ui, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(label, v.X(x1) - 3, v.Y(y) - 2); }
+    if (label && ui.labels) { ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = '10.5px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(label, v.X(x0) + 3, v.Y(y) - 2); }
+    ctx.restore();
+  }
+
+  function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+  /* editable value on the drawing ("chip") */
+  function chip(px, py, text, path, value, align) {
+    ctx.save();
+    ctx.font = '600 11px ' + FONT;
+    const tw = ctx.measureText(text).width;
+    const editable = !!path && !printing;
+    const w = tw + 10 + (editable ? 13 : 0), h = 18;
+    let x = align === 'left' ? px : align === 'right' ? px - w : px - w / 2;
+    x = Math.max(2, Math.min(CW - w - 2, x));
+    const y = Math.max(2, Math.min(CH - h - 2, py - h / 2));
+    ctx.fillStyle = editable ? '#ffffff' : 'rgba(255,255,255,.85)';
+    roundRect(x, y, w, h, 4); ctx.fill();
+    if (editable) { ctx.strokeStyle = BLUE; ctx.lineWidth = 1.2; ctx.stroke(); }
+    ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + 5, y + h / 2 + 0.5);
+    if (editable) { ctx.fillStyle = BLUE; ctx.font = '11px ' + FONT; ctx.fillText('✎', x + 7 + tw, y + h / 2 + 0.5); }
+    ctx.restore();
+    if (editable) hit.chips.push({ x, y, w, h, path, value });
+  }
+
+  function arrow(x, y, ang) {
+    ctx.beginPath(); ctx.moveTo(x, y);
+    ctx.lineTo(x - 7 * Math.cos(ang - 0.35), y - 7 * Math.sin(ang - 0.35));
+    ctx.lineTo(x - 7 * Math.cos(ang + 0.35), y - 7 * Math.sin(ang + 0.35));
+    ctx.closePath(); ctx.fill();
+  }
+  function dimLine(x1, y1, x2, y2, ext) {
+    ctx.save(); ctx.strokeStyle = STEEL_D; ctx.fillStyle = STEEL_D; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    const a = Math.atan2(y2 - y1, x2 - x1);
+    arrow(x2, y2, a); arrow(x1, y1, a + Math.PI);
+    if (ext) { // extension lines up to the object (ext = [y of object for x1, y for x2]) — horizontal dims only
+      ctx.setLineDash([2, 3]); ctx.strokeStyle = '#9db0c5';
+      ctx.beginPath(); ctx.moveTo(x1, y1 + 4); ctx.lineTo(x1, ext[0]); ctx.moveTo(x2, y2 + 4); ctx.lineTo(x2, ext[1]); ctx.stroke();
+    }
     ctx.restore();
   }
 
   function drawTurns(v, cr, mapXY) {
-    const minR = 0.45;
     cr.fill.turns.forEach(t => {
       const [x, y] = mapXY(t);
       const px = v.X(x), py = v.Y(y);
-      const r = Math.max(minR, t.d / 2 * v.s * 0.96);
+      const r = Math.max(0.45, t.d / 2 * v.s * 0.96);
       const si = turnSection(cr, t);
       ctx.fillStyle = sectionColor(si);
-      const partial = t.used < t.circ - 1e-6;
-      ctx.globalAlpha = partial ? 0.45 : 1;
+      ctx.globalAlpha = t.used < t.circ - 1e-6 ? 0.45 : 1;
       if (r < 1.6) ctx.fillRect(px - r, py - r, r * 2, r * 2);
-      else { ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill(); if (r > 4) { ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = .6; ctx.stroke(); } }
+      else { ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill(); if (r > 4) { ctx.strokeStyle = 'rgba(0,0,0,.22)'; ctx.lineWidth = .6; ctx.stroke(); } }
       ctx.globalAlpha = 1;
       hit.items.push({ px, py, r: Math.max(r, 3), cr, t });
     });
   }
 
-  function drawMarkers(v, list) {
-    // list: [{px, py, text, color}]
+  function drawMarkers(list) {
     if (!ui.labels) return;
     ctx.save();
-    ctx.font = '600 11px system-ui, sans-serif';
+    ctx.font = '600 11px ' + FONT;
     const placed = [];
     list.forEach(m => {
       ctx.beginPath(); ctx.arc(m.px, m.py, 5, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
-      ctx.lineWidth = 2.5; ctx.strokeStyle = '#0f2742'; ctx.stroke();
-      const tw = ctx.measureText(m.text).width + 12;
+      ctx.lineWidth = 2.5; ctx.strokeStyle = INK; ctx.stroke();
+      const editable = m.path && !printing;
+      const tw = ctx.measureText(m.text).width + 12 + (editable ? 13 : 0);
       let lx = m.px + 14, ly = m.py - 26;
-      if (lx + tw > canvas.clientWidth - 4) lx = m.px - 14 - tw;
+      if (lx + tw > CW - 4) lx = m.px - 14 - tw;
       if (ly < 4) ly = m.py + 12;
       for (let k = 0; k < 12 && placed.some(p => Math.abs(p.y - ly) < 19 && lx < p.x + p.w && lx + tw > p.x); k++) ly += 20;
       placed.push({ x: lx, y: ly, w: tw });
-      ctx.strokeStyle = '#0f2742'; ctx.lineWidth = 1;
+      ctx.strokeStyle = INK; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(m.px, m.py); ctx.lineTo(lx < m.px ? lx + tw : lx, ly + 9); ctx.stroke();
-      ctx.fillStyle = '#0f2742'; roundRect(lx, ly, tw, 18, 4); ctx.fill();
+      ctx.fillStyle = INK; roundRect(lx, ly, tw, 18, 4); ctx.fill();
       ctx.fillStyle = m.color; ctx.fillRect(lx + 4, ly + 5, 3, 8);
-      ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(m.text, lx + 9, ly + 9.5);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(m.text + (editable ? '  ✎' : ''), lx + 9, ly + 9.5);
+      if (editable) hit.chips.push({ x: lx, y: ly, w: tw, h: 18, path: m.path, value: m.value });
     });
     ctx.restore();
   }
-  function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 
   function sectionEndMarkers(v, crs, mapXY) {
     const list = [];
@@ -561,17 +628,15 @@
       cr.sectionIdx.forEach((si, j) => {
         const sr = result.sections[si];
         if (!sr || !sr.last || !(sr.placed > 0)) return;
-        const t = { across: sr.last.across, stack: sr.last.stack, d: sr.last.d };
-        const [x, y] = mapXY(t);
-        list.push({ px: v.X(x), py: v.Y(y), text: `${shortName(si)} end · ${fmt(sr.placed, 0)} m`, color: sectionColor(si) });
+        const [x, y] = mapXY({ across: sr.last.across, stack: sr.last.stack });
+        list.push({ px: v.X(x), py: v.Y(y), text: `${shortName(si)} end · ${fmt(sr.placed, 0)} m`, color: sectionColor(si), path: `sections.${si}.length`, value: state.sections[si].length });
         if (j === 0 && sr.first) {
-          const t0 = { across: sr.first.across, stack: sr.first.stack };
-          const [x0, y0] = mapXY(t0);
+          const [x0, y0] = mapXY({ across: sr.first.across, stack: sr.first.stack });
           list.push({ px: v.X(x0), py: v.Y(y0), text: `${shortName(si)} start`, color: sectionColor(si) });
         }
       });
     });
-    drawMarkers(v, list);
+    drawMarkers(list);
   }
   function shortName(si) { const s = state.sections[si]; const n = (s && s.name) || 'S' + (si + 1); return n.length > 22 ? n.slice(0, 21) + '…' : n; }
 
@@ -579,81 +644,132 @@
     return ui.zoom === 'all' ? result.compartments : [result.compartments[parseInt(ui.zoom, 10)]].filter(Boolean);
   }
 
+  /* ---- turntable / tank: vertical section through the axis ---- */
   function drawCoilSection(W, H) {
-    const rings = state.carrier.rings.slice().sort((a, b) => num(a.diameter) - num(b.diameter));
+    const rings = ringsSorted();
     const crs = selectedComps();
-    if (!crs.length) return noData('No compartment');
-    let x0, x1;
-    if (ui.zoom === 'all') { x0 = num(rings[0].diameter) / 2; x1 = num(rings[rings.length - 1].diameter) / 2 + num(rings[rings.length - 1].thickness) / 1000; }
-    else { const c = crs[0].comp; x0 = c.acrossMin - num(rings[c.innerRing].thickness) / 1000; x1 = c.acrossMax + num(rings[c.outerRing].thickness) / 1000; }
+    if (!crs.length || rings.length < 2) return noData('No compartment');
+    const full = ui.zoom === 'all';
     const hMax = Math.max(...rings.map(r => num(r.height)), 0.1);
+    const outer = rings[rings.length - 1];
+    const Rout = num(outer.diameter) / 2 + num(outer.thickness);
+    let x0, x1, shown = rings;
+    if (full) { x0 = -Rout; x1 = Rout; }
+    else {
+      const c = crs[0].comp;
+      shown = [rings[c.innerRing], rings[c.outerRing]];
+      x0 = num(shown[0].diameter) / 2; x1 = c.acrossMax + num(shown[1].thickness);
+    }
     const spanX = x1 - x0;
-    const world = { x0: x0 - spanX * 0.04, x1: x1 + spanX * 0.04, y0: -hMax * 0.04, y1: hMax * 1.08 };
-    const v = makeView(world, W, H, { l: 46, r: 14, t: 14, b: 34 });
-    drawAxes(v, 'Radius from turntable / tank centre (m)', 'Height above floor (m)');
-    rect(v, world.x0, -hMax * 0.04, world.x1, 0, '#d9dfe6');
+    const padB = full ? 26 + rings.length * 26 : 40;
+    const world = { x0: x0 - spanX * 0.03, x1: x1 + spanX * 0.03, y0: -hMax * 0.03, y1: hMax * 1.02 };
+    const v = makeView(world, W, H, { l: 46, r: 14, t: full ? 50 : 70, b: padB });
+    drawAxes(v, 'Radius from centre (m)', 'Height above floor (m)', { noX: full, yMax: hMax });
+    rect(v, world.x0, world.y0, world.x1, 0, '#dfe7f0');
+    const sides = full ? [1, -1] : [1];
+    if (full) { // centre line
+      ctx.save(); ctx.setLineDash([10, 4, 2, 4]); ctx.strokeStyle = '#8aa1ba'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(v.X(0), v.Y(world.y0)); ctx.lineTo(v.X(0), v.Y(hMax) - 30); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = '#8aa1ba'; ctx.font = '600 11px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('CL', v.X(0), v.Y(hMax) - 32);
+    }
     // walls
-    rings.forEach(r => {
-      const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness) / 1000, 0);
-      if (ro < world.x0 || ri > world.x1) return;
-      rect(v, ri, 0, ro, num(r.height), STEEL, STEEL_D);
-      if (ui.labels) { ctx.fillStyle = STEEL_D; ctx.font = '600 10.5px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(r.name || '', v.X((ri + ro) / 2), v.Y(num(r.height)) - 3); }
+    shown.forEach(r => {
+      const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness), 0);
+      sides.forEach(sg => rect(v, sg * ri, 0, sg * ro, num(r.height), STEEL, STEEL_D));
     });
-    crs.forEach(cr => {
+    // compartments: limits and turns
+    crs.forEach((cr, k) => {
       const c = cr.comp;
       if (!c.valid) return;
-      dashed(v, c.acrossMin, c.acrossMax, c.stackMax, '#c0392b', `max stack ${fmt(c.stackMax, 2)} m`);
-      if (cr.fill.turns.length) dashed(v, c.acrossMin, c.acrossMax, cr.fill.top, '#0f2742', `top of cable ${fmt(cr.fill.top, 2)} m`);
-      drawTurns(v, cr, t => [t.across, t.stack]);
-      if (ui.labels) { ctx.fillStyle = '#173a5e'; ctx.font = '600 12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; const wpx = (c.acrossMax - c.acrossMin) * v.s; ctx.fillText(wpx < 190 ? `C${c.index + 1} · ${fmt(cr.usedPct * 100, 0)} %` : `${c.label} · ${fmt(cr.usedPct * 100, 0)} % height`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(world.y1) + 2); }
+      sides.forEach(sg => {
+        dashed(v, sg * c.acrossMin, sg * c.acrossMax, c.stackMax, LIMIT, '');
+        if (cr.fill.turns.length) dashed(v, sg * c.acrossMin, sg * c.acrossMax, cr.fill.top, INK, '');
+        drawTurns(v, cr, t => [sg * t.across, t.stack]);
+      });
+      if (ui.labels) {
+        const wpx = (c.acrossMax - c.acrossMin) * v.s;
+        ctx.fillStyle = INK; ctx.font = '600 11.5px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText(wpx < 170 ? `C${c.index + 1} · ${fmt(cr.usedPct * 100, 0)} %` : `${c.label} · ${fmt(cr.usedPct * 100, 0)} % of height`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(c.stackMax) + 4);
+        if (cr.fill.turns.length && wpx > 150) { ctx.font = '10.5px ' + FONT; ctx.textBaseline = 'bottom'; ctx.fillText(`top of cable ${fmt(cr.fill.top, 2)} m`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(cr.fill.top) - 3); }
+      }
+      // freeboard dimension (first compartment shown; on the left half in the full view)
+      if (k === 0) {
+        const wallH = c.wallHeight;
+        const px = full ? v.X(-c.acrossMin) - 8 : v.X(c.acrossMax) - 8;
+        if ((wallH - c.stackMax) * v.s > 10) dimLine(px, v.Y(wallH), px, v.Y(c.stackMax));
+        chip(px - 6, (v.Y(wallH) + v.Y(c.stackMax)) / 2 + (full ? 0 : 14), `Freeboard ${fmt(num(state.carrier.freeboard), 2)} m`, 'carrier.freeboard', state.carrier.freeboard, 'right');
+      }
+    });
+    // dimensions of the rings
+    shown.forEach((r, k) => {
+      const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness), 0), h = num(r.height);
+      const pxR = v.X((ri + ro) / 2), top = v.Y(h);
+      chip(pxR, top - 12, `H ${fmt(h, 2)} m`, `carrier.rings.${r._i}.height`, r.height);
+      if (ui.labels) { ctx.fillStyle = STEEL_D; ctx.font = '600 10.5px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(r.name || '', full ? v.X(-(ri + ro) / 2) : pxR, full ? top - 24 : top - 24); }
+      if (full) {
+        chip(v.X(-(ri + ro) / 2), top - 12, `t ${fmt(num(r.thickness), 3)} m`, `carrier.rings.${r._i}.thickness`, r.thickness);
+        const py = v.Y(world.y0) + 16 + k * 26;
+        dimLine(v.X(-ri), py, v.X(ri), py, [v.Y(0), v.Y(0)]);
+        chip(v.X(0), py, `Ø ${fmt(num(r.diameter), 2)} m  ${r.name || ''}`, `carrier.rings.${r._i}.diameter`, r.diameter);
+      } else {
+        chip(pxR, top - 42, `Ø ${fmt(num(r.diameter), 2)} m`, `carrier.rings.${r._i}.diameter`, r.diameter);
+        chip(pxR, top - 62, `t ${fmt(num(r.thickness), 3)} m`, `carrier.rings.${r._i}.thickness`, r.thickness);
+      }
     });
     sectionEndMarkers(v, crs, t => [t.across, t.stack]);
     hit.view = v; hit.mode = 'circles';
   }
 
+  /* ---- drum: section along the axis ---- */
   function drawDrumSection(W, H) {
     const d = state.carrier.drum;
     const crs = selectedComps();
     if (!crs.length) return noData('No bay');
-    const tFl = Math.max(num(d.flangeThickness) / 1000, 0);
+    const tFl = Math.max(num(d.flangeThickness), 0);
     const Rb = num(d.barrelDiameter) / 2, Rf = num(d.flangeDiameter) / 2;
     const all = result.compartments;
     const totalW = all.length ? all[all.length - 1].comp.acrossMax : 1;
     let x0 = -tFl, x1 = totalW + tFl;
     if (ui.zoom !== 'all') { x0 = crs[0].comp.acrossMin - tFl; x1 = crs[0].comp.acrossMax + tFl; }
     const depth = Math.max(Rf - Rb, 0.1);
-    const y0 = Math.max(0, Rb - depth * 0.25);
-    const world = { x0: x0 - (x1 - x0) * 0.03, x1: x1 + (x1 - x0) * 0.03, y0, y1: Rf + depth * 0.06 };
-    const v = makeView(world, W, H, { l: 46, r: 14, t: 18, b: 34 });
+    const y0 = Math.max(0, Rb - depth * 0.3);
+    const world = { x0: x0 - (x1 - x0) * 0.03, x1: x1 + (x1 - x0) * 0.03, y0, y1: Rf };
+    const v = makeView(world, W, H, { l: 46, r: 14, t: 34, b: 36 });
     drawAxes(v, 'Axial position from inner face of the first flange (m)', 'Radius from drum axis (m)');
-    rect(v, -tFl, y0, totalW + tFl, Rb, '#b9c2cc', STEEL_D); // barrel
-    // flanges
-    let x = 0;
+    rect(v, -tFl, y0, totalW + tFl, Rb, '#c3d1df', STEEL_D); // barrel
     rect(v, -tFl, y0, 0, Rf, STEEL, STEEL_D);
-    all.forEach(cr => { x = cr.comp.acrossMax; rect(v, x, y0, x + tFl, Rf, STEEL, STEEL_D); });
-    crs.forEach(cr => {
+    all.forEach(cr => rect(v, cr.comp.acrossMax, y0, cr.comp.acrossMax + tFl, Rf, STEEL, STEEL_D));
+    crs.forEach((cr, k) => {
       const c = cr.comp;
       if (!c.valid) return;
-      dashed(v, c.acrossMin, c.acrossMax, c.stackMax, '#c0392b', `freeboard limit R ${fmt(c.stackMax, 2)} m`);
+      dashed(v, c.acrossMin, c.acrossMax, c.stackMax, LIMIT, '');
       drawTurns(v, cr, t => [t.across, t.stack]);
-      if (ui.labels) { ctx.fillStyle = '#173a5e'; ctx.font = '600 12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(`${c.name} · ${cr.fill.layers} layers`, v.X((c.acrossMin + c.acrossMax) / 2), 2); }
+      if (ui.labels) { ctx.fillStyle = INK; ctx.font = '600 11.5px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(`${c.name} · ${cr.fill.layers} layers`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(Rf) - 4); }
+      // bay width
+      const py = v.Y(Rb) + (v.Y(y0) - v.Y(Rb)) * 0.33;
+      dimLine(v.X(c.acrossMin), py, v.X(c.acrossMax), py);
+      chip(v.X((c.acrossMin + c.acrossMax) / 2), py, `W ${fmt(c.acrossMax - c.acrossMin, 2)} m`, `carrier.drum.bays.${c.index}.width`, d.bays[c.index].width);
+      if (k === 0) chip(v.X(c.acrossMax) - 4, v.Y(c.stackMax) - 11, `Freeboard ${fmt(num(d.freeboard), 2)} m`, 'carrier.drum.freeboard', d.freeboard, 'right');
     });
+    const c0 = crs[0].comp, cN = crs[crs.length - 1].comp;
+    chip(v.X(c0.acrossMin - tFl / 2), v.Y(Rf) - 22, `Ø flange ${fmt(Rf * 2, 2)} m`, 'carrier.drum.flangeDiameter', d.flangeDiameter, 'left');
+    chip(v.X(cN.acrossMax + tFl / 2), v.Y(Rf) - 22, `t ${fmt(tFl, 3)} m`, 'carrier.drum.flangeThickness', d.flangeThickness, 'right');
+    chip(v.X((c0.acrossMin + cN.acrossMax) / 2), v.Y(Rb) + (v.Y(y0) - v.Y(Rb)) * 0.75, `Ø barrel ${fmt(Rb * 2, 2)} m`, 'carrier.drum.barrelDiameter', d.barrelDiameter);
     sectionEndMarkers(v, crs, t => [t.across, t.stack]);
     hit.view = v; hit.mode = 'circles';
   }
 
+  /* ---- turntable / tank: plan view of the top layers ---- */
   function drawCoilPlan(W, H) {
-    const rings = state.carrier.rings.slice().sort((a, b) => num(a.diameter) - num(b.diameter));
+    const rings = ringsSorted();
     const crs = selectedComps();
-    const Rmax = num(rings[rings.length - 1].diameter) / 2 + num(rings[rings.length - 1].thickness) / 1000;
+    const outer = rings[rings.length - 1];
+    const Rmax = num(outer.diameter) / 2 + num(outer.thickness);
     const world = { x0: -Rmax * 1.05, x1: Rmax * 1.05, y0: -Rmax * 1.05, y1: Rmax * 1.05 };
-    const v = makeView(world, W, H, { l: 10, r: 10, t: 10, b: 10 });
+    const v = makeView(world, W, H, { l: 10, r: 10, t: 24, b: 10 });
     const cx = v.X(0), cy = v.Y(0);
-    // floor
-    ctx.beginPath(); ctx.arc(cx, cy, Rmax * v.s, 0, Math.PI * 2); ctx.fillStyle = '#eef1f5'; ctx.fill();
-    hit.items = [];
+    ctx.beginPath(); ctx.arc(cx, cy, Rmax * v.s, 0, Math.PI * 2); ctx.fillStyle = '#eef3f8'; ctx.fill();
     crs.forEach(cr => {
-      // top visible turn in each radial slot: draw layers in order, upper ones last (segments as arcs)
       const turns = cr.fill.turns.slice().sort((a, b) => a.layer - b.layer);
       const nL = cr.fill.layers;
       turns.forEach(t => {
@@ -662,46 +778,48 @@
         ctx.lineWidth = Math.max(1, t.d * v.s * 0.92);
         t.segs.forEach(sg => {
           ctx.strokeStyle = sectionColor(cr.sectionIdx[sg.item]);
-          ctx.globalAlpha = t.layer === nL ? 1 : 0.55;
+          ctx.globalAlpha = t.layer === nL ? 1 : 0.5;
           ctx.beginPath(); ctx.arc(cx, cy, rr, -Math.PI / 2 + sg.from * 2 * Math.PI, -Math.PI / 2 + sg.to * 2 * Math.PI); ctx.stroke();
         });
         ctx.globalAlpha = 1;
-        if (t.layer === nL || !turns.some(u => u.layer === nL && Math.abs(u.across - t.across) < t.d / 2)) hit.items.push({ r0: t.across - t.d / 2, r1: t.across + t.d / 2, cr, t });
+        hit.items.push({ r0: t.across - t.d / 2, r1: t.across + t.d / 2, cr, t });
       });
     });
     rings.forEach(r => {
-      const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness) / 1000, 0.02);
+      const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness), 0.02);
       ctx.beginPath(); ctx.arc(cx, cy, (ri + ro) / 2 * v.s, 0, Math.PI * 2);
       ctx.lineWidth = Math.max(2, (ro - ri) * v.s); ctx.strokeStyle = STEEL_D; ctx.stroke();
     });
-    // section end markers on the top layer (angle from frac)
+    // diameters on a horizontal line through the centre
+    rings.forEach((r, k) => {
+      const ri = num(r.diameter) / 2;
+      chip(cx + ri * v.s * Math.cos(Math.PI / 4 + k * 0.12), cy + ri * v.s * Math.sin(-Math.PI / 4 - k * 0.12), `Ø ${fmt(ri * 2, 2)} m`, `carrier.rings.${r._i}.diameter`, r.diameter);
+    });
     const list = [];
     crs.forEach(cr => cr.sectionIdx.forEach(si => {
       const sr = result.sections[si];
-      if (!sr || !sr.last || !(sr.placed > 0)) return;
-      if (sr.last.layer < cr.fill.layers - 1) return; // buried
+      if (!sr || !sr.last || !(sr.placed > 0) || sr.last.layer < cr.fill.layers - 1) return;
       const a = -Math.PI / 2 + sr.last.frac * 2 * Math.PI;
-      list.push({ px: cx + Math.cos(a) * sr.last.across * v.s, py: cy + Math.sin(a) * sr.last.across * v.s, text: `${shortName(si)} end`, color: sectionColor(si) });
+      list.push({ px: cx + Math.cos(a) * sr.last.across * v.s, py: cy + Math.sin(a) * sr.last.across * v.s, text: `${shortName(si)} end`, color: sectionColor(si), path: `sections.${si}.length`, value: state.sections[si].length });
     }));
-    drawMarkers(v, list);
+    drawMarkers(list);
     if (ui.labels) {
-      ctx.fillStyle = '#5d6b7a'; ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillText('Top two layers seen from above. Turns start at 12 o\'clock and run clockwise.', 10, 8);
+      ctx.fillStyle = '#5a7391'; ctx.font = '11px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText('Top two layers seen from above. Turns start at 12 o\'clock and run clockwise.', 10, 6);
     }
     hit.view = v; hit.mode = 'radial'; hit.center = [cx, cy];
   }
 
+  /* ---- drum: side view ---- */
   function drawDrumSide(W, H) {
     const d = state.carrier.drum;
     const cr = selectedComps()[0];
     if (!cr) return noData('No bay');
     const Rb = num(d.barrelDiameter) / 2, Rf = num(d.flangeDiameter) / 2;
     const world = { x0: -Rf * 1.06, x1: Rf * 1.06, y0: -Rf * 1.06, y1: Rf * 1.06 };
-    const v = makeView(world, W, H, { l: 10, r: 10, t: 10, b: 10 });
+    const v = makeView(world, W, H, { l: 10, r: 10, t: 24, b: 10 });
     const cx = v.X(0), cy = v.Y(0);
-    ctx.beginPath(); ctx.arc(cx, cy, Rf * v.s, 0, Math.PI * 2); ctx.fillStyle = '#e3e8ee'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = STEEL_D; ctx.stroke();
-    hit.items = [];
-    // one ring per layer, coloured by the section that holds most of it
+    ctx.beginPath(); ctx.arc(cx, cy, Rf * v.s, 0, Math.PI * 2); ctx.fillStyle = '#e6edf5'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = STEEL_D; ctx.stroke();
     const byLayer = {};
     cr.fill.turns.forEach(t => { (byLayer[t.layer] = byLayer[t.layer] || []).push(t); });
     Object.keys(byLayer).map(Number).sort((a, b) => a - b).forEach(L => {
@@ -722,21 +840,27 @@
       });
       hit.items.push({ r0: r - dd / 2, r1: r + dd / 2, cr, layer: L, ts, share, tot, capL });
     });
-    ctx.beginPath(); ctx.arc(cx, cy, Rb * v.s, 0, Math.PI * 2); ctx.fillStyle = '#b9c2cc'; ctx.fill(); ctx.strokeStyle = STEEL_D; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, Rb * v.s, 0, Math.PI * 2); ctx.fillStyle = '#c3d1df'; ctx.fill(); ctx.strokeStyle = STEEL_D; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.beginPath(); ctx.arc(cx, cy, Math.max(4, Rb * v.s * 0.12), 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke();
-    // freeboard circle
-    ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 1.2;
+    ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = LIMIT; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.arc(cx, cy, cr.comp.stackMax * v.s, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    chip(cx, cy - Rf * v.s - 0, `Ø flange ${fmt(Rf * 2, 2)} m`, 'carrier.drum.flangeDiameter', d.flangeDiameter);
+    chip(cx, cy - Rb * v.s * 0.5, `Ø barrel ${fmt(Rb * 2, 2)} m`, 'carrier.drum.barrelDiameter', d.barrelDiameter);
     if (ui.labels) {
-      ctx.fillStyle = '#5d6b7a'; ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillText(`${cr.comp.name}: one ring per layer, split by section share. Red dashed = freeboard limit.`, 10, 8);
+      ctx.fillStyle = '#5a7391'; ctx.font = '11px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(`${cr.comp.name}: one ring per layer, split by section share. Red dashed = freeboard limit.`, 10, 6);
     }
     hit.view = v; hit.mode = 'radial'; hit.center = [cx, cy];
   }
 
   function noData(msg) {
-    ctx.fillStyle = '#5d6b7a'; ctx.font = '14px system-ui, sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(msg, canvas.clientWidth / 2, canvas.clientHeight / 2);
+    ctx.fillStyle = '#5a7391'; ctx.font = '14px ' + FONT; ctx.textAlign = 'center';
+    ctx.fillText(msg, CW / 2, CH / 2);
+  }
+
+  function drawView(W, H) {
+    if (kind() === 'coil') (ui.view === 'plan' ? drawCoilPlan : drawCoilSection)(W, H);
+    else (ui.view === 'side' ? drawDrumSide : drawDrumSection)(W, H);
   }
 
   function drawCanvas() {
@@ -745,18 +869,51 @@
     const W = canvas.clientWidth, H = canvas.clientHeight;
     if (!W || !H) return;
     canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx = mainCtx; CW = W; CH = H;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    hit = { mode: null, items: [], view: null };
-    if (kind() === 'coil') (ui.view === 'plan' ? drawCoilPlan : drawCoilSection)(W, H);
-    else (ui.view === 'side' ? drawDrumSide : drawDrumSection)(W, H);
+    hit = { mode: null, items: [], chips: [], view: null };
+    drawView(W, H);
   }
 
-  /* ---------------- tooltip ---------------- */
+  /* off-screen rendering for the report (PNG data URL) */
+  function renderImage(view, zoom, W, H) {
+    const c = document.createElement('canvas');
+    const sc = 2.5;
+    c.width = Math.round(W * sc); c.height = Math.round(H * sc);
+    const saved = { ctx, CW, CH, hit, view: ui.view, zoom: ui.zoom, labels: ui.labels };
+    ctx = c.getContext('2d'); ctx.setTransform(sc, 0, 0, sc, 0, 0);
+    CW = W; CH = H; printing = true; ui.view = view; ui.zoom = zoom; ui.labels = true;
+    hit = { mode: null, items: [], chips: [], view: null };
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    try { drawView(W, H); } finally {
+      ctx = saved.ctx; CW = saved.CW; CH = saved.CH; hit = saved.hit; ui.view = saved.view; ui.zoom = saved.zoom; ui.labels = saved.labels; printing = false;
+    }
+    // trim empty white bands above and below the drawing
+    const g = c.getContext('2d');
+    const img = g.getImageData(0, 0, c.width, c.height).data;
+    const rowBlank = y => { for (let x = 0; x < c.width; x += 3) { const k = (y * c.width + x) * 4; if (img[k] < 245 || img[k + 1] < 245 || img[k + 2] < 245) return false; } return true; };
+    let top = 0, bot = c.height - 1;
+    while (top < bot && rowBlank(top)) top++;
+    while (bot > top && rowBlank(bot)) bot--;
+    const m = Math.round(8 * sc);
+    top = Math.max(0, top - m); bot = Math.min(c.height - 1, bot + m);
+    const out = document.createElement('canvas');
+    out.width = c.width; out.height = bot - top + 1;
+    out.getContext('2d').drawImage(c, 0, top, c.width, out.height, 0, 0, c.width, out.height);
+    return out.toDataURL('image/png');
+  }
+
+  /* ---------------- tooltip & on-drawing editing ---------------- */
   const tip = $('tooltip');
+  const wrap = $('canvasWrap');
+  function chipAt(mx, my) { return hit.chips.slice().reverse().find(c => mx >= c.x && mx <= c.x + c.w && my >= c.y && my <= c.y + c.h); }
+
   canvas.addEventListener('mousemove', e => {
     const rc = canvas.getBoundingClientRect();
     const mx = e.clientX - rc.left, my = e.clientY - rc.top;
+    if (chipAt(mx, my)) { canvas.style.cursor = 'pointer'; tip.style.display = 'none'; return; }
+    canvas.style.cursor = 'crosshair';
     let html = '';
     if (hit.mode === 'circles') {
       let best = null, bd = Infinity;
@@ -778,6 +935,41 @@
   });
   canvas.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
 
+  canvas.addEventListener('click', e => {
+    const rc = canvas.getBoundingClientRect();
+    const c = chipAt(e.clientX - rc.left, e.clientY - rc.top);
+    if (!c) return;
+    tip.style.display = 'none';
+    openEditor(c);
+  });
+
+  function openEditor(c) {
+    const old = wrap.querySelector('.dim-editor');
+    if (old) old.remove();
+    const box = document.createElement('div');
+    box.className = 'dim-editor';
+    box.innerHTML = `<input type="number" step="any" min="0" value="${esc(c.value)}"><span>${c.path.endsWith('length') ? 'm' : 'm'}</span>`;
+    const w = Math.max(c.w + 30, 120);
+    box.style.left = Math.max(2, Math.min(wrap.clientWidth - w - 2, c.x + c.w / 2 - w / 2)) + 'px';
+    box.style.top = Math.max(2, c.y - 4) + 'px';
+    box.style.width = w + 'px';
+    wrap.appendChild(box);
+    const inp = box.querySelector('input');
+    inp.focus(); inp.select();
+    let done = false;
+    const commit = ok => {
+      if (done) return; done = true;
+      const val = inp.value;
+      box.remove();
+      if (!ok || val === '' || !Number.isFinite(num(val, NaN))) return;
+      setPath(state, c.path, num(val));
+      if (/rings\.\d+\.diameter/.test(c.path)) state.carrier.rings.sort((a, b) => num(a.diameter) - num(b.diameter));
+      update(); renderTab();
+    };
+    inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') commit(true); else if (ev.key === 'Escape') commit(false); });
+    inp.addEventListener('blur', () => commit(true));
+  }
+
   function turnTip(cr, t) {
     const c = cr.comp;
     const nT = cr.fill.turnsPerLayer[t.layer];
@@ -786,7 +978,7 @@
       const si = cr.sectionIdx[sg.item];
       const s = state.sections[si];
       const cab = s && cableById(s.cableId);
-      h += `<div><span class="dot" style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${esc(sectionColor(si))};margin-right:5px"></span><b>${esc(s ? s.name : '')}</b> <span style="opacity:.75">${esc(cab ? cab.name : '')}</span><br>Section KP ${fmt(sg.kp, 0)} → ${fmt(sg.kp + sg.length, 0)} m</div>`;
+      h += `<div><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${esc(sectionColor(si))};margin-right:5px"></span><b>${esc(s ? s.name : '')}</b> <span style="opacity:.75">${esc(cab ? cab.name : '')}</span><br>Section KP ${fmt(sg.kp, 0)} → ${fmt(sg.kp + sg.length, 0)} m</div>`;
     });
     h += `<div style="margin-top:4px;opacity:.9">${esc(c.label)} · Layer ${t.layer} / ${cr.fill.layers} · Turn ${t.turn} / ${nT}<br>`;
     if (c.kind === 'coil') h += `R ${fmt(t.across, 2)} m · centre H ${fmt(t.stack, 2)} m · top ${fmt(t.stack + t.d / 2, 2)} m<br>`;
@@ -801,7 +993,7 @@
   }
 
   window.addEventListener('resize', () => drawCanvas());
-  window.addEventListener('beforeprint', () => drawCanvas());
+  window.addEventListener('beforeprint', () => buildReport());
 
   /* ---------------- legend & gauges ---------------- */
   function renderLegend() {
@@ -875,7 +1067,7 @@
         <td class="r">${cr.fill.full ? '<span class="badge fail">full</span>' : fmt(cr.remaining, 0) + ' m'}<br><span class="muted">${esc(cr.refCable ? cr.refCable.name : '')}</span></td></tr>`;
     });
     const t = result.totals;
-    h += `<tr><td><b>Total</b></td><td></td><td class="r">${state.sections.length}</td><td class="r"><b>${fmt(t.length, 0)}</b></td><td class="r"><b>${fmt(t.weight, 1)}</b>${num(state.carrier.tare) ? `<br><span class="muted">gross ${fmt(t.gross, 1)}</span>` : ''}</td><td></td><td></td><td></td>${coil ? `<td class="r">${t.vcg === null ? '–' : fmt(t.vcg, 2) + ' m'}</td>` : ''}<td class="r"><b>${fmt(t.remaining, 0)} m</b></td></tr>`;
+    h += `<tr><td><b>Total</b></td><td></td><td class="r">${state.sections.length}</td><td class="r"><b>${fmt(t.length, 0)}</b></td><td class="r"><b>${fmt(t.weight, 1)}</b>${num(state.carrier.tare) ? `<br><span class="muted">${kind() === 'coil' ? 'with carrier' : 'with drum'} <b>${fmt(t.gross, 1)}</b></span>` : ''}</td><td></td><td></td><td></td>${coil ? `<td class="r">${t.vcg === null ? '–' : fmt(t.vcg, 2) + ' m'}</td>` : ''}<td class="r"><b>${fmt(t.remaining, 0)} m</b></td></tr>`;
     h += '</tbody></table>';
     if (coil) h += '<p class="muted" style="font-size:11.5px;margin:6px 0 0">Cable VCG = vertical centre of gravity of the loaded cable above the tank / turntable floor (for stability calculations).</p>';
     $('compTable').innerHTML = h;
@@ -883,26 +1075,127 @@
 
   function renderCapTable() {
     const maxLoad = num(state.carrier.maxLoad);
-    let h = `<table class="data"><thead><tr><th>Cable</th>${result.compartments.map(cr => `<th class="r">${esc(cr.comp.label)}</th>`).join('')}<th class="r">Total (volume)</th><th class="r">Weight at total</th>${maxLoad ? '<th class="r">Limit by SWL</th><th class="r">Max. loadable</th>' : ''}</tr></thead><tbody>`;
+    let h = `<table class="data"><thead><tr><th>Cable</th>${result.compartments.map(cr => `<th class="r">${esc(cr.comp.label)}</th>`).join('')}<th class="r">Total (volume)</th><th class="r">Working (80 %)</th><th class="r">Weight at total</th>${maxLoad ? '<th class="r">Limit by SWL</th><th class="r">Max. loadable</th>' : ''}</tr></thead><tbody>`;
     capMatrix.forEach(row => {
       const tot = row.caps.reduce((a, b) => a + b, 0);
       const w = tot * num(row.cable.weight) / 1000;
       const bySwl = num(row.cable.weight) > 0 ? maxLoad * 1000 / num(row.cable.weight) : Infinity;
       h += `<tr><td><b>${esc(row.cable.name)}</b><br><span class="muted">Ø ${fmt(num(row.cable.od), 0)} mm · ${fmt(num(row.cable.weight), 1)} kg/m</span></td>${row.caps.map(c => `<td class="r">${fmt(c, 0)} m</td>`).join('')}
-        <td class="r"><b>${fmt(tot, 0)} m</b></td><td class="r">${fmt(w, 1)} t</td>${maxLoad ? `<td class="r">${fmt(bySwl, 0)} m</td><td class="r"><b>${fmt(Math.min(tot, bySwl), 0)} m</b><br><span class="muted">${bySwl < tot ? 'limited by weight' : 'limited by volume'}</span></td>` : ''}</tr>`;
+        <td class="r"><b>${fmt(tot, 0)} m</b></td><td class="r">${fmt(tot * 0.8, 0)} m</td><td class="r">${fmt(w, 1)} t</td>${maxLoad ? `<td class="r">${fmt(bySwl, 0)} m</td><td class="r"><b>${fmt(Math.min(tot, bySwl), 0)} m</b><br><span class="muted">${bySwl < tot ? 'limited by weight' : 'limited by volume'}</span></td>` : ''}</tr>`;
     });
     h += '</tbody></table>';
     $('capTable').innerHTML = h;
   }
 
-  function renderReportHead() {
-    const i = state.info, c = state.carrier;
-    const rows = [['Client / project', i.client], ['Vessel / site', i.vessel], ['Reference', i.reference], ['Prepared by', i.preparedBy], ['Date', i.date]].filter(r => r[1]);
-    const w = state.winding;
-    $('reportHead').innerHTML = `<div class="report-head"><div><h1>Cable loading plan — ${esc(state.name || 'Untitled')}</h1>
-      <div>${esc((CARRIER_TYPES[c.type] || {}).label)}${c.name ? ' · ' + esc(c.name) : ''} · ${w.stacking === 'nested' ? 'nested' : 'square'} stacking · turn gap ${fmt(num(w.turnGap), 0)} mm</div>
-      ${i.notes ? `<div class="muted">${esc(i.notes)}</div>` : ''}</div>
-      <table>${rows.map(r => `<tr><td class="muted">${esc(r[0])}</td><td><b>${esc(r[1])}</b></td></tr>`).join('')}</table></div>`;
+  /* ================================================================== */
+  /* A4 report                                                           */
+  /* ================================================================== */
+  function buildReport() {
+    if (!result) return;
+    const i = state.info, c = state.carrier, w = state.winding, t = result.totals;
+    const coil = kind() === 'coil';
+    const typeLabel = (CARRIER_TYPES[c.type] || {}).label || '';
+    const statusTxt = { ok: 'Loading plan OK', warn: 'Loading plan to be checked', fail: 'Loading plan NOT OK' }[t.status];
+    const order = { fail: 0, warn: 1, info: 2, ok: 3 };
+    const checks = result.checks.slice().sort((a, b) => order[a.level] - order[b.level]);
+
+    // drawings
+    const W = 1000;
+    const img1 = renderImage('section', 'all', W, coil ? 560 : 520);
+    const img2 = [];
+    if (coil) img2.push({ src: renderImage('plan', 'all', 520, 520), cap: 'Plan view — top two layers' });
+    else result.compartments.slice(0, 3).forEach(cr => img2.push({ src: renderImage('side', String(cr.comp.index), 420, 420), cap: `Side view — ${cr.comp.name}` }));
+
+    const kpi = (k, v, cls) => `<div class="rk ${cls || ''}"><div class="rk-k">${k}</div><div class="rk-v">${v}</div></div>`;
+    let kpis = kpi('Cable loaded', `${fmt(t.length, 0)} m`) + kpi('Cable weight', `${fmt(t.weight, 1)} t`);
+    if (num(c.tare) > 0) kpis += kpi(coil ? 'Total weight (carrier + cable)' : 'Total drum weight (drum + cable)', `${fmt(t.gross, 1)} t`, 'strong');
+    if (t.loadPct !== null) kpis += kpi('Load vs SWL', `${fmt(t.loadPct * 100, 1)} %`, t.loadPct > 1 ? 'bad' : '');
+    kpis += kpi('Spare capacity', `${fmt(t.remaining, 0)} m`);
+    if (t.vcg !== null) kpis += kpi('Cable VCG', `${fmt(t.vcg, 2)} m`);
+
+    const info = [['Client / project', i.client], ['Vessel / site', i.vessel], ['Carrier', `${typeLabel}${c.name ? ' — ' + c.name : ''}`],
+      ['Max. cable load (SWL)', num(c.maxLoad) ? fmt(num(c.maxLoad), 1) + ' t' : '–'], ['Empty weight (tare)', num(c.tare) ? fmt(num(c.tare), 1) + ' t' : '–'],
+      ['Winding', `${w.stacking === 'nested' ? 'Nested' : 'Square'} stacking · turn gap ${fmt(num(w.turnGap), 0)} mm · layer gap ${fmt(num(w.layerGap), 0)} mm`]];
+
+    // sections table (compact, portrait)
+    let sec = `<table class="rt"><thead><tr><th>#</th><th>Section / cable</th><th>${coil ? 'Comp.' : 'Bay'}</th><th class="r">Loaded</th><th class="r">Weight</th><th>Inner end (start)</th><th>Outer end (end)</th><th class="r">Off</th><th>Status</th></tr></thead><tbody>`;
+    result.sections.forEach((sr, k) => {
+      const s = state.sections[k], cr = result.compartments[sr.compIndex], cab = sr.cable;
+      let st = '<span class="rb ok">OK</span>';
+      if (sr.placed === undefined || !cr) st = '<span class="rb bad">Error</span>';
+      else if (sr.overflow > 0.01) st = `<span class="rb bad">Overflow ${fmt(sr.overflow, 0)} m</span>`;
+      else if (cab && num(cab.mbr) > 0 && sr.minRadius < num(cab.mbr)) st = '<span class="rb bad">MBR</span>';
+      const off = cr ? cr.sectionIdx.length - cr.sectionIdx.indexOf(k) : '';
+      sec += `<tr><td>${k + 1}</td><td><span class="sw" style="background:${esc(sectionColor(k))}"></span><b>${esc(s.name)}</b><br><span class="mut">${esc(cab ? cab.name : '–')}${cab ? ` · Ø ${fmt(num(cab.od), 0)} mm` : ''}</span></td>
+        <td>${cr ? esc(cr.comp.label.replace('Compartment ', 'C')) : '–'}</td><td class="r">${fmt(sr.placed, 0)} m${sr.requested && Math.abs(sr.requested - sr.placed) > 0.5 ? `<br><span class="mut">of ${fmt(sr.requested, 0)}</span>` : ''}</td><td class="r">${fmt(sr.weight, 1)} t</td>
+        <td>${cr ? posText(cr, sr.first, false) : '–'}</td><td>${cr ? posText(cr, sr.last, true) : '–'}</td><td class="r">${off ? '#' + off : ''}</td><td>${st}</td></tr>`;
+    });
+    sec += '</tbody></table>';
+
+    // compartments
+    let comp = `<table class="rt"><thead><tr><th>${coil ? 'Compartment' : 'Bay'}</th><th>Geometry</th><th class="r">Loaded</th><th class="r">Weight</th><th class="r">Layers</th><th class="r">Turns / layer</th><th class="r">Stack used</th>${coil ? '<th class="r">VCG</th>' : ''}<th class="r">Spare</th></tr></thead><tbody>`;
+    result.compartments.forEach(cr => {
+      const cc = cr.comp;
+      const geo = coil ? `R ${fmt(cc.acrossMin, 2)}–${fmt(cc.acrossMax, 2)} m · H ${fmt(cc.stackMax, 2)} m` : `W ${fmt(cc.acrossMax - cc.acrossMin, 2)} m · R ${fmt(cc.stackMin, 2)}–${fmt(cc.stackMax, 2)} m`;
+      comp += `<tr><td><b>${esc(cc.label)}</b><br><span class="mut">${esc(cc.name)}</span></td><td>${geo}</td><td class="r">${fmt(cr.length, 0)} m</td><td class="r">${fmt(cr.weight, 1)} t</td><td class="r">${cr.fill.layers}</td><td class="r">${cr.turnsLayer1}</td>
+        <td class="r">${fmt(cr.used, 2)} m · ${fmt(cr.usedPct * 100, 0)} %</td>${coil ? `<td class="r">${cr.vcg === null ? '–' : fmt(cr.vcg, 2) + ' m'}</td>` : ''}<td class="r">${cr.fill.full ? 'full' : fmt(cr.remaining, 0) + ' m'}</td></tr>`;
+    });
+    comp += `<tr class="tot"><td><b>Total</b></td><td></td><td class="r"><b>${fmt(t.length, 0)} m</b></td><td class="r"><b>${fmt(t.weight, 1)} t</b></td><td></td><td></td><td></td>${coil ? `<td class="r">${t.vcg === null ? '–' : fmt(t.vcg, 2) + ' m'}</td>` : ''}<td class="r"><b>${fmt(t.remaining, 0)} m</b></td></tr>`;
+    if (num(c.tare) > 0) comp += `<tr class="tot"><td colspan="3"><b>${coil ? 'Total weight (carrier + cable)' : 'Total drum weight (drum + cable)'}</b></td><td class="r"><b>${fmt(t.gross, 1)} t</b></td><td colspan="${coil ? 5 : 4}" class="mut">tare ${fmt(num(c.tare), 1)} t + cable ${fmt(t.weight, 1)} t</td></tr>`;
+    comp += '</tbody></table>';
+
+    // geometry
+    let geo;
+    if (coil) {
+      geo = '<table class="rt"><thead><tr><th>Ring / cerce</th><th class="r">Inner Ø</th><th class="r">Wall thickness</th><th class="r">Height</th></tr></thead><tbody>' +
+        ringsSorted().map(r => `<tr><td>${esc(r.name)}</td><td class="r">${fmt(num(r.diameter), 2)} m</td><td class="r">${fmt(num(r.thickness), 3)} m</td><td class="r">${fmt(num(r.height), 2)} m</td></tr>`).join('') +
+        `<tr><td>Freeboard</td><td colspan="3" class="r">${fmt(num(c.freeboard), 2)} m</td></tr></tbody></table>`;
+    } else {
+      const d = c.drum;
+      geo = `<table class="rt"><tbody><tr><td>Barrel Ø</td><td class="r">${fmt(num(d.barrelDiameter), 2)} m</td></tr><tr><td>Flange Ø</td><td class="r">${fmt(num(d.flangeDiameter), 2)} m</td></tr>
+        <tr><td>Flange thickness</td><td class="r">${fmt(num(d.flangeThickness), 3)} m</td></tr><tr><td>Freeboard</td><td class="r">${fmt(num(d.freeboard), 2)} m</td></tr>` +
+        d.bays.map(b => `<tr><td>${esc(b.name)} — inner width</td><td class="r">${fmt(num(b.width), 2)} m</td></tr>`).join('') + '</tbody></table>';
+    }
+    const cabT = '<table class="rt"><thead><tr><th>Cable</th><th class="r">OD</th><th class="r">Weight</th><th class="r">MBR</th></tr></thead><tbody>' +
+      state.cables.map(cb => `<tr><td>${esc(cb.name)}</td><td class="r">${fmt(num(cb.od), 0)} mm</td><td class="r">${fmt(num(cb.weight), 1)} kg/m</td><td class="r">${fmt(num(cb.mbr), 2)} m</td></tr>`).join('') + '</tbody></table>';
+
+    const capT = `<table class="rt"><thead><tr><th>Cable</th>${result.compartments.map(cr => `<th class="r">${esc(cr.comp.label.replace('Compartment ', 'C'))}</th>`).join('')}<th class="r">Total</th><th class="r">Working 80 %</th>${num(c.maxLoad) ? '<th class="r">Max. by SWL</th>' : ''}</tr></thead><tbody>` +
+      capMatrix.map(row => {
+        const tot = row.caps.reduce((a, b) => a + b, 0);
+        const bySwl = num(row.cable.weight) > 0 ? num(c.maxLoad) * 1000 / num(row.cable.weight) : Infinity;
+        return `<tr><td>${esc(row.cable.name)}</td>${row.caps.map(v => `<td class="r">${fmt(v, 0)} m</td>`).join('')}<td class="r"><b>${fmt(tot, 0)} m</b></td><td class="r">${fmt(tot * 0.8, 0)} m</td>${num(c.maxLoad) ? `<td class="r">${fmt(bySwl, 0)} m</td>` : ''}</tr>`;
+      }).join('') + '</tbody></table>';
+
+    const legend = state.sections.map((s, k) => `<span><i style="background:${esc(sectionColor(k))}"></i>${esc(s.name)}</span>`).join('');
+
+    $('report').innerHTML = `<div class="rp">
+      <header class="rp-head">
+        <div class="rp-logo"><svg width="34" height="34" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#fff"/><circle cx="16" cy="16" r="10" fill="none" stroke="#1565c0" stroke-width="2.5"/><circle cx="16" cy="16" r="5.5" fill="none" stroke="#1565c0" stroke-width="2.5"/></svg></div>
+        <div class="rp-title"><div class="rp-kicker">Cable loading plan</div><h1>${esc(state.name || 'Untitled project')}</h1></div>
+        <table class="rp-meta"><tr><td>Reference</td><td>${esc(i.reference || '–')}</td></tr><tr><td>Date</td><td>${esc(i.date || '–')}</td></tr><tr><td>Prepared by</td><td>${esc(i.preparedBy || '–')}</td></tr></table>
+      </header>
+      <section class="rp-row">
+        <table class="rp-info">${info.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1] || '–')}</td></tr>`).join('')}</table>
+        <div class="rp-status ${t.status}"><div class="rp-status-t">${statusTxt}</div>${checks.map(ch => `<div class="ln ${ch.level}">${esc(ch.text)}</div>`).join('')}</div>
+      </section>
+      <section class="rp-kpis">${kpis}</section>
+      <figure class="rp-fig"><img src="${img1}" alt=""><figcaption>Figure 1 — ${coil ? 'Cross-section through the centre (full diameter)' : 'Cross-section along the drum axis'}. Red dashed line = freeboard limit.</figcaption></figure>
+      <div class="rp-legend">${legend}</div>
+      <section class="rp-two">
+        <div class="rp-figs">${img2.map((im, k) => `<figure class="rp-fig small"><img src="${im.src}" alt=""><figcaption>Figure ${k + 2} — ${esc(im.cap)}</figcaption></figure>`).join('')}</div>
+        <div class="rp-gauges"><h2>Fill per ${coil ? 'compartment' : 'bay'}</h2>${$('gauges').innerHTML}</div>
+      </section>
+      <h2 class="rp-h">1. Cable sections — start and end positions</h2>${sec}
+      <p class="mut small">Inner end = first end loaded (bottom of the coil / on the barrel). Outer end = last end loaded. "Off" = order in which the sections come off the ${coil ? 'compartment' : 'bay'}.</p>
+      <h2 class="rp-h">2. ${coil ? 'Compartments' : 'Bays'}</h2>${comp}
+      <div class="rp-cols"><div><h2 class="rp-h">3. Carrier geometry</h2>${geo}</div><div><h2 class="rp-h">4. Cables</h2>${cabT}</div></div>
+      <h2 class="rp-h">5. Maximum capacity (each cable alone, empty carrier)</h2>${capT}
+      <h2 class="rp-h">6. Assumptions and notes</h2>
+      <ul class="rp-notes"><li>Turn-by-turn simulation, layers alternate direction; ${w.stacking === 'nested' ? 'nested stacking (layer pitch 0.866 × OD)' : 'square stacking (layer pitch 1.0 × OD)'}, turn gap ${fmt(num(w.turnGap), 0)} mm, layer gap ${fmt(num(w.layerGap), 0)} mm.</li>
+        <li>Freeboard ${fmt(num(coil ? c.freeboard : c.drum.freeboard), 2)} m kept below the ${coil ? 'top of the walls' : 'flange rim'}. Working capacity taken as ≈ 80 % of the theoretical capacity.</li>
+        <li>Planning aid only: check against the carrier drawings, the cable data sheets and the loading procedure.</li>${i.notes ? `<li>${esc(i.notes)}</li>` : ''}</ul>
+      <table class="rp-sign"><tr><th></th><th>Name</th><th>Date</th><th>Signature</th></tr><tr><td>Prepared</td><td>${esc(i.preparedBy)}</td><td>${esc(i.date)}</td><td></td></tr><tr><td>Checked</td><td></td><td></td><td></td></tr><tr><td>Approved</td><td></td><td></td><td></td></tr></table>
+    </div>`;
   }
 
   function ask(msg, onYes) {
@@ -921,7 +1214,7 @@
   /* ================================================================== */
   /* Top bar actions                                                     */
   /* ================================================================== */
-  $('projectName').addEventListener('input', e => { state.name = e.target.value; autosave(); renderReportHead(); });
+  $('projectName').addEventListener('input', e => { state.name = e.target.value; autosave(); });
   $('exampleSelect').addEventListener('change', e => {
     const k = e.target.value;
     e.target.value = '';
@@ -959,7 +1252,7 @@
     rd.readAsText(f);
     e.target.value = '';
   });
-  $('btnPrint').addEventListener('click', () => window.print());
+  $('btnPrint').addEventListener('click', () => { buildReport(); window.print(); });
 
   update();
   renderTab();

@@ -20,24 +20,26 @@ Enter the carrier (rings / cerces, flanges, bays), the cable types and the cable
 | Local (development) | `python3 -m http.server 8080` in the repository root, then open <http://localhost:8080> |
 | **Online** | <https://anthocazin.github.io/CableLoadingPlanner/> (published by `.github/workflows/pages.yml` on every push to `main`). |
 
-The project is saved automatically in the browser. **Save** produces a `.cableplan.json` file you can archive or send; **Open** reloads it. **Report / PDF** prints a landscape loading report (choose *Save as PDF* in the print dialog).
+The project is saved automatically in the browser. **Save** produces a `.cableplan.json` file you can archive or send; **Open** reloads it. **Report / PDF** prints an A4 portrait loading report with drawings, fill, section positions, geometry, capacity and a signature block (choose *Save as PDF* in the print dialog).
 
 Three examples are built in (*Examples…* menu): export cable on a 5 000 t turntable, inter-array cables in a 2-compartment static tank, a split drum with 2 bays.
 
 ## What you enter
 
-1. **Carrier**
-   - *Turntable* or *Static tank*: any number of **rings / cerces** from the core outwards — inner Ø, wall thickness, height. Each space between two rings is a **compartment**. Freeboard below the top of the walls. Max. cable load (SWL) and tare.
-   - *Cable drum*: barrel Ø, flange Ø, flange thickness, freeboard, and one or several **bays** (intermediate flanges / joues).
+1. **Type** (all carrier dimensions in metres)
+   - *Turntable* or *Static tank*: any number of **rings / cerces** from the core outwards — inner Ø, wall thickness, height. Each space between two rings is a **compartment**. Max. cable load (SWL) and empty weight.
+   - *Cable drum*: barrel Ø, flange Ø, flange thickness, and one or several **bays** (intermediate flanges / joues). Empty drum weight → total drum weight (drum + cable).
+   - **Freeboard** = clearance kept between the top of the cable and the top of the walls (tank / turntable) or the flange rim (drum). The cable is never loaded above *wall height − freeboard* / *flange radius − freeboard*.
+   - Dimensions and section lengths can also be **edited directly on the drawing** (click a value ✎).
 2. **Cables** — library of cable types: OD (mm), weight (kg/m), minimum bend radius (m), optional crush limit (max. layers on top).
 3. **Loading plan** — the cable sections, in loading order: name, cable type, length, compartment / bay. The **Max** button sets a section to the largest length that still fits after the sections loaded before it.
-4. **Settings** — square or nested stacking, gap between turns and between layers, side where the first layer starts, report information.
+4. **Settings** — square or nested stacking, gap between turns and between layers, side where the first layer starts, report information. *Apply standard values* sets the usual planning basis: 0 mm between layers (layer pitch 1.0 × OD square / 0.866 × OD nested), 0 mm between turns on a drum, ≈ 5 % of OD between turns in a tank / on a turntable, working capacity ≈ 80 % of theoretical.
 
 ## What you get
 
 - **Status**: overflow, bend radius vs MBR, crush limit, weight vs SWL.
 - **Drawings** (hover any turn for details: section, layer, turn, radius, height, section KP):
-  - turntable / tank: *cross-section* (half section, radius × height) and *plan view* of the top layers;
+  - turntable / tank: *cross-section* through the centre (full diameter, with dimensions) and *plan view* of the top layers;
   - drum: *cross-section* along the axis and *side view* (one ring per layer).
   - Start and end of every section are flagged.
 - **Fill gauges** per compartment: length of each section, spare capacity, stack height used.
