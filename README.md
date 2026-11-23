@@ -4,6 +4,8 @@ Plan and show **how much cable fits on a turntable (carousel), a static tank or 
 
 Enter the carrier (rings / cerces, flanges, bays), the cable types and the cable sections in loading order: the tool simulates the loading turn by turn and gives you the fill, the weight, the remaining capacity and the exact position (layer, turn, radius, height) of each section end, with a drawing.
 
+**▶ Open the app: <https://anthocazin.github.io/CableLoadingPlanner/>**
+
 **No installation**: a single HTML file that also works **offline** (on board, on site).
 
 > ⚠️ Planning aid only. Results assume regular winding / coiling with the stacking and gaps set in *Settings*. Always check against the carrier drawings, the cable data sheets and the loading procedure.
@@ -16,7 +18,7 @@ Enter the carrier (rings / cerces, flanges, bays), the cable types and the cable
 |---|---|
 | **Offline (recommended)** | Download [`dist/CableLoadingPlanner.html`](dist/CableLoadingPlanner.html) and open it in Chrome or Edge (double-click). |
 | Local (development) | `python3 -m http.server 8080` in the repository root, then open <http://localhost:8080> |
-| Online | GitHub Pages workflow provided (`.github/workflows/pages.yml`): enable *Settings → Pages → Source = GitHub Actions*. |
+| **Online** | <https://anthocazin.github.io/CableLoadingPlanner/> (published by `.github/workflows/pages.yml` on every push to `main`). |
 
 The project is saved automatically in the browser. **Save** produces a `.cableplan.json` file you can archive or send; **Open** reloads it. **Report / PDF** prints a landscape loading report (choose *Save as PDF* in the print dialog).
 
