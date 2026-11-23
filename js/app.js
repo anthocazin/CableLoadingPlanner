@@ -96,6 +96,9 @@
     p.cables = Array.isArray(p.cables) ? p.cables : [];
     p.sections = Array.isArray(p.sections) ? p.sections : [];
     p.cables.forEach(c => { if (!c.id) c.id = uid(); });
+    p.carrier.rings.forEach(r => { if (!r.id) r.id = uid(); });
+    p.carrier.drum.bays.forEach(b => { if (!b.id) b.id = uid(); });
+    if (!p.labels || typeof p.labels !== 'object') p.labels = {};
     p.sections.forEach((s, i) => { if (!s.id) s.id = uid(); if (!s.color) s.color = PALETTE[i % PALETTE.length]; });
     return p;
   }
@@ -374,11 +377,11 @@
         const last = c.rings[c.rings.length - 1];
         const prev = c.rings[c.rings.length - 2];
         const dNew = (num(prev.diameter) + num(last.diameter)) / 2;
-        c.rings.splice(c.rings.length - 1, 0, { name: 'Cerce ' + (c.rings.length - 1), diameter: Math.round(dNew * 100) / 100, thickness: num(last.thickness) || 20, height: num(last.height) });
+        c.rings.splice(c.rings.length - 1, 0, { id: uid(), name: 'Cerce ' + (c.rings.length - 1), diameter: Math.round(dNew * 100) / 100, thickness: num(last.thickness) || 20, height: num(last.height) });
         break;
       }
       case 'delRing': c.rings.splice(i, 1); break;
-      case 'addBay': c.drum.bays.push({ name: 'Bay ' + (c.drum.bays.length + 1), width: num(c.drum.bays[c.drum.bays.length - 1].width) || 1 }); break;
+      case 'addBay': c.drum.bays.push({ id: uid(), name: 'Bay ' + (c.drum.bays.length + 1), width: num(c.drum.bays[c.drum.bays.length - 1].width) || 1 }); break;
       case 'delBay': c.drum.bays.splice(i, 1); break;
       case 'addCable': state.cables.push({ id: uid(), name: 'Cable ' + (state.cables.length + 1), od: 150, weight: 40, mbr: 2, maxLayers: 0, color: PALETTE[(state.cables.length + 3) % PALETTE.length] }); break;
       case 'dupCable': state.cables.splice(i + 1, 0, Object.assign({}, state.cables[i], { id: uid(), name: state.cables[i].name + ' (copy)' })); break;
@@ -491,7 +494,7 @@
   const mainCtx = canvas.getContext('2d');
   let ctx = mainCtx;
   let CW = 0, CH = 0, printing = false;
-  let hit = { mode: null, items: [], chips: [], handles: [], view: null };
+  let hit = { mode: null, items: [], labels: [], hidden: 0, handles: [], view: null };
   let frozen = null; // drawing scale kept still while a wall is dragged
   const r2 = v => Math.round(v * 100) / 100;
   const tOf = r => Math.max(num(r.thickness) / 1000, 0);
@@ -571,24 +574,85 @@
 
   function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 
+  /* ---------- labels arranged by the user ----------
+   * Each label has a stable id tied to what it describes (section id, ring id, bay id, field), so it stays
+   * attached to the right element when the order or the dimensions change. Its position (offset from the
+   * point it describes), its text and its visibility are stored per view in state.labels. */
+  function viewKey() { return `${state.carrier.type}|${ui.view}|${ui.zoom}`; }
+  function labCfg(id) { const v = state.labels && state.labels[viewKey()]; return (v && v[id]) || {}; }
+  function setLabCfg(id, patch) {
+    state.labels = state.labels || {};
+    const k = viewKey();
+    const v = state.labels[k] = state.labels[k] || {};
+    const c = Object.assign({}, v[id] || {}, patch);
+    Object.keys(c).forEach(key => { if (c[key] === undefined || c[key] === null || c[key] === '' || c[key] === false) delete c[key]; });
+    if (Object.keys(c).length) v[id] = c; else delete v[id];
+    if (!Object.keys(v).length) delete state.labels[k];
+  }
+  function stableId(path) {
+    return path.replace(/^carrier\.rings\.(\d+)\./, (m, i) => `ring:${(state.carrier.rings[i] || {}).id}.`)
+      .replace(/^carrier\.drum\.bays\.(\d+)\./, (m, i) => `bay:${(state.carrier.drum.bays[i] || {}).id}.`)
+      .replace(/^sections\.(\d+)\./, (m, i) => `sec:${(state.sections[i] || {}).id}.`);
+  }
+  const secId = si => (state.sections[si] || {}).id;
+  const VAL_RE = /-?\d[\d.,]*\s*(mm|m|t|%)?\s*$/;
+
+  // L = { id, style: 'chip' | 'marker' | 'top' | 'text', ax, ay (point described), text, pos(w, h) → [x, y] default box,
+  //       color, textColor, font, path / value (editable value), leader: 'always' | 'moved' }
+  function label(L) {
+    if (!ui.labels && L.style !== 'chip') return null;
+    const cfg = labCfg(L.id);
+    if (cfg.hidden) { hit.hidden += 1; return null; }
+    let text = L.text;
+    if (cfg.text) {
+      const m = L.path ? (L.text.match(/-?\d[\d.,]*\s*(mm|m|t|%)/) || null) : null;
+      text = cfg.text + (m ? ' · ' + m[0] : '');
+    }
+    const style = L.style;
+    const editable = !!L.path && !printing;
+    ctx.save();
+    ctx.font = L.font || ('600 11px ' + FONT);
+    const tw = ctx.measureText(text).width;
+    const padL = style === 'marker' || style === 'top' ? 10 : style === 'text' ? 3 : 5;
+    const w = tw + padL + 5 + (editable ? 13 : 0), h = style === 'text' ? 16 : 18;
+    let [x, y] = L.pos(w, h);
+    const moved = cfg.dx !== undefined;
+    if (moved) { x = L.ax + cfg.dx; y = L.ay + cfg.dy; }
+    x = Math.max(2, Math.min(CW - w - 2, x)); y = Math.max(2, Math.min(CH - h - 2, y));
+    // leader line to the element described
+    if (L.leader === 'always' || moved) {
+      const tx = Math.max(x, Math.min(x + w, L.ax)), ty = Math.max(y, Math.min(y + h, L.ay));
+      if (Math.hypot(tx - L.ax, ty - L.ay) > 3) {
+        const col = style === 'top' ? L.color : style === 'marker' ? INK : DIM;
+        ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = style === 'top' ? 1.4 : 1;
+        if (style !== 'marker') ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.moveTo(L.ax, L.ay); ctx.lineTo(tx, ty); ctx.stroke(); ctx.setLineDash([]);
+        if (style !== 'marker') { ctx.beginPath(); ctx.arc(L.ax, L.ay, 2.5, 0, Math.PI * 2); ctx.fill(); }
+      }
+    }
+    if (style === 'marker') { ctx.fillStyle = INK; roundRect(x, y, w, h, 4); ctx.fill(); }
+    else if (style === 'top') { ctx.fillStyle = '#fff'; roundRect(x, y, w, h, 4); ctx.fill(); ctx.strokeStyle = L.color; ctx.lineWidth = 1.5; ctx.stroke(); }
+    else if (style === 'chip') { ctx.fillStyle = editable ? '#fff' : 'rgba(255,255,255,.85)'; roundRect(x, y, w, h, 4); ctx.fill(); if (editable) { ctx.strokeStyle = BLUE; ctx.lineWidth = 1.2; ctx.stroke(); } }
+    else if (moved) { ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(x, y, w, h); }
+    if (style === 'marker' || style === 'top') { ctx.fillStyle = L.color; ctx.fillRect(x + 4, y + 5, 3, h - 10); }
+    ctx.fillStyle = style === 'marker' ? '#fff' : (L.textColor || INK);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + padL, y + h / 2 + 0.5);
+    if (editable) { ctx.fillStyle = style === 'marker' ? '#9cc4f5' : BLUE; ctx.font = '11px ' + FONT; ctx.fillText('✎', x + padL + tw + 3, y + h / 2 + 0.5); }
+    ctx.restore();
+    if (!printing) hit.labels.push({ id: L.id, x, y, w, h, ax: L.ax, ay: L.ay, path: L.path, value: L.value, text, defText: L.text, custom: !!cfg.text, valueLabel: !!L.path });
+    return { x, y, w, h };
+  }
+
   /* editable value on the drawing ("chip") */
   function chip(px, py, text, path, value, align) {
-    ctx.save();
-    ctx.font = '600 11px ' + FONT;
-    const tw = ctx.measureText(text).width;
-    const editable = !!path && !printing;
-    const w = tw + 10 + (editable ? 13 : 0), h = 18;
-    let x = align === 'left' ? px : align === 'right' ? px - w : px - w / 2;
-    x = Math.max(2, Math.min(CW - w - 2, x));
-    const y = Math.max(2, Math.min(CH - h - 2, py - h / 2));
-    ctx.fillStyle = editable ? '#ffffff' : 'rgba(255,255,255,.85)';
-    roundRect(x, y, w, h, 4); ctx.fill();
-    if (editable) { ctx.strokeStyle = BLUE; ctx.lineWidth = 1.2; ctx.stroke(); }
-    ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(text, x + 5, y + h / 2 + 0.5);
-    if (editable) { ctx.fillStyle = BLUE; ctx.font = '11px ' + FONT; ctx.fillText('✎', x + 7 + tw, y + h / 2 + 0.5); }
-    ctx.restore();
-    if (editable) hit.chips.push({ x, y, w, h, path, value });
+    label({ id: 'v:' + stableId(path), style: 'chip', ax: px, ay: py, text, path, value, leader: 'moved',
+      pos: (w, h) => [align === 'left' ? px : align === 'right' ? px - w : px - w / 2, py - h / 2] });
+  }
+  /* plain text on the drawing */
+  function textLabel(id, ax, ay, text, font, color, baseline) {
+    label({ id, style: 'text', ax, ay, text, font, textColor: color, leader: 'moved',
+      pos: (w, h) => [ax - w / 2, baseline === 'top' ? ay : ay - h] });
   }
 
   function arrow(x, y, ang) {
@@ -636,7 +700,8 @@
       const editable = m.path && !printing;
       const tw = ctx.measureText(m.text).width + 12 + (editable ? 13 : 0);
       let lx = m.px + 14;
-      if (lx + tw > maxX) lx = m.px - 14 - tw;
+      const left = lx + tw > maxX;
+      if (left) lx = m.px - 14 - tw;
       // first free slot above the point (more room there), then below
       const hits = y => placed.some(p => Math.abs(p.y - y) < 20 && lx < p.x + p.w + 4 && lx + tw + 4 > p.x);
       const cands = [];
@@ -644,13 +709,10 @@
       for (let k = 0; k < 4; k++) cands.push(m.py + 12 + k * 22);
       let ly = cands.find(y => y > 4 && y < CH - 22 && !hits(y));
       if (ly === undefined) ly = Math.max(4, m.py - 26);
-      placed.push({ x: lx, y: ly, w: tw });
-      ctx.strokeStyle = INK; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(m.px, m.py); ctx.lineTo(lx < m.px ? lx + tw : lx, ly + 9); ctx.stroke();
-      ctx.fillStyle = INK; roundRect(lx, ly, tw, 18, 4); ctx.fill();
-      ctx.fillStyle = m.color; ctx.fillRect(lx + 4, ly + 5, 3, 8);
-      ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(m.text + (editable ? '  ✎' : ''), lx + 9, ly + 9.5);
-      if (editable) hit.chips.push({ x: lx, y: ly, w: tw, h: 18, path: m.path, value: m.value });
+      const cfg = labCfg(m.id);
+      if (cfg.dx === undefined && !cfg.hidden) placed.push({ x: lx, y: ly, w: tw });
+      label({ id: m.id, style: 'marker', ax: m.px, ay: m.py, text: m.text, color: m.color, path: m.path, value: m.value, leader: 'always',
+        pos: (w) => [left ? m.px - 14 - w : m.px + 14, ly] });
     });
     ctx.restore();
   }
@@ -662,12 +724,12 @@
         const sr = result.sections[si];
         if (!sr || !sr.last || !(sr.placed > 0)) return;
         const [x, y] = mapXY({ across: sr.last.across, stack: sr.last.stack });
-        list.push({ px: v.X(x), py: v.Y(y), text: `${shortName(si)} end · ${fmt(sr.placed, 0)} m`, color: sectionColor(si), path: `sections.${si}.length`, value: state.sections[si].length });
+        list.push({ id: `end:${secId(si)}`, px: v.X(x), py: v.Y(y), text: `${shortName(si)} end · ${fmt(sr.placed, 0)} m`, color: sectionColor(si), path: `sections.${si}.length`, value: state.sections[si].length });
         if (j === 0 && sr.first) {
           const [x0, y0] = mapXY({ across: sr.first.across, stack: sr.first.stack });
           const px = v.X(x0), py = v.Y(y0), c = cr.comp, coil = c.kind === 'coil';
           const sideName = coil ? (state.winding.startSide === 'outer' ? 'outer wall' : 'core side') : (state.winding.startSide === 'right' ? 'right flange' : 'left flange');
-          list.push({ px, py, text: `${shortName(si)} start ⇄`, color: sectionColor(si) });
+          list.push({ id: `start:${secId(si)}`, px, py, text: `${shortName(si)} start ⇄`, color: sectionColor(si) });
           // drag the start point to the other side → loading starts from the inside or the outside
           addHandle({ priority: true, cursor: 'grab', label: `start point (now: ${sideName}) — drop it on the other side to load from there`,
             test: (mx, my) => Math.hypot(mx - px, my - py) <= 10,
@@ -748,10 +810,10 @@
       });
       if (ui.labels) {
         const wpx = (c.acrossMax - c.acrossMin) * v.s;
-        ctx.fillStyle = INK; ctx.font = '600 11.5px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
         const lx = v.X((full ? -1 : 1) * (c.acrossMin + c.acrossMax) / 2); // annotations on the left half, cable data on the right half
-        ctx.fillText(wpx < 170 ? `C${c.index + 1} · ${fmt(cr.usedPct * 100, 0)} %` : `${c.label} · ${fmt(cr.usedPct * 100, 0)} % of height`, lx, v.Y(c.stackMax) + 4);
-        if (cr.fill.turns.length && wpx > 150) { ctx.font = '10.5px ' + FONT; ctx.textBaseline = 'bottom'; ctx.fillText(`top of cable ${fmt(cr.fill.top, 2)} m`, full ? lx : lx, v.Y(cr.fill.top) - 3); }
+        const cid = `comp:${(rings[c.innerRing] || {}).id}-${(rings[c.outerRing] || {}).id}`;
+        textLabel(cid + ':fill', lx, v.Y(c.stackMax) + 4, wpx < 170 ? `C${c.index + 1} · ${fmt(cr.usedPct * 100, 0)} %` : `${c.label} · ${fmt(cr.usedPct * 100, 0)} % of height`, '600 11.5px ' + FONT, INK, 'top');
+        if (cr.fill.turns.length && wpx > 150) textLabel(cid + ':top', lx, v.Y(cr.fill.top) - 3, `top of cable ${fmt(cr.fill.top, 2)} m`, '10.5px ' + FONT, INK, 'bottom');
       }
       // freeboard dimension (first compartment shown; on the left half in the full view)
       if (k === 0) {
@@ -767,7 +829,7 @@
       const pxR = v.X((ri + ro) / 2), pxL = v.X(-(ri + ro) / 2), top = v.Y(h);
       const pxA = full ? pxL : pxR; // annotation side
       chip(pxA, top - 12, `H ${fmt(h, 2)} m`, `carrier.rings.${r._i}.height`, r.height);
-      if (ui.labels) { ctx.fillStyle = '#000'; ctx.font = '700 10.5px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(r.name || '', pxA, full ? top - 50 : top - 24); }
+      textLabel(`ringname:${r.id}`, pxA, full ? top - 50 : top - 24, r.name || '', '700 10.5px ' + FONT, '#000', 'bottom');
       if (full) {
         chip(pxL, top - 32, `t ${fmt(num(r.thickness), 0)} mm`, `carrier.rings.${r._i}.thickness`, r.thickness);
         const py = v.Y(world.y0) + 16 + k * 26;
@@ -798,21 +860,13 @@
     // keep the labels above the floor: shift the whole stack up if needed
     const over = list.length ? list[list.length - 1].ly - (yMax || CH - 12) : 0;
     if (over > 0) list.forEach(it => { it.ly -= over; });
-    ctx.save();
     list.forEach(it => {
       const col = sectionColor(it.si);
-      ctx.setLineDash([5, 3]); ctx.strokeStyle = col; ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(it.x0, it.y); ctx.lineTo(xLabel - 4, it.y); ctx.lineTo(xLabel, it.ly); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.font = '600 11px ' + FONT;
-      const txt = `${shortName(it.si)} top · ${fmtTop(it.top)}`;
-      const w = ctx.measureText(txt).width + 14;
-      ctx.fillStyle = '#fff'; roundRect(xLabel, it.ly - 9, w, 18, 4); ctx.fill();
-      ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.fillStyle = col; ctx.fillRect(xLabel + 4, it.ly - 5, 3, 10);
-      ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, xLabel + 10, it.ly + 0.5);
+      ctx.save(); ctx.setLineDash([5, 3]); ctx.strokeStyle = col; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(it.x0, it.y); ctx.lineTo(xLabel - 6, it.y); ctx.stroke(); ctx.restore();
+      label({ id: `top:${secId(it.si)}`, style: 'top', ax: xLabel - 6, ay: it.y, color: col, text: `${shortName(it.si)} top · ${fmtTop(it.top)}`, leader: 'always',
+        pos: (w, h) => [xLabel, it.ly - h / 2] });
     });
-    ctx.restore();
   }
 
   /* ---- drum: section along the axis ---- */
@@ -859,7 +913,7 @@
       if (!c.valid) { invalidNote(v.X((c.acrossMin + c.acrossMax) / 2), v.Y((Rb + Rf) / 2), c.reason); return; }
       dashed(v, c.acrossMin, c.acrossMax, c.stackMax, LIMIT, '');
       drawTurns(v, cr, t => [t.across, t.stack]);
-      if (ui.labels) { ctx.fillStyle = INK; ctx.font = '600 11.5px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(`${c.name} · ${cr.fill.layers} layers`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(Rf) - 4); }
+      textLabel(`baytitle:${(d.bays[c.index] || {}).id}`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(Rf) - 4, `${c.name} · ${cr.fill.layers} layers`, '600 11.5px ' + FONT, INK, 'bottom');
       // bay width
       const py = v.Y(Rb) + (v.Y(y0) - v.Y(Rb)) * 0.33;
       dimLine(v.X(c.acrossMin), py, v.X(c.acrossMax), py);
@@ -926,7 +980,7 @@
       const sr = result.sections[si];
       if (!sr || !sr.last || !(sr.placed > 0) || sr.last.layer < cr.fill.layers - 1) return;
       const a = -Math.PI / 2 + sr.last.frac * 2 * Math.PI;
-      list.push({ px: cx + Math.cos(a) * sr.last.across * v.s, py: cy + Math.sin(a) * sr.last.across * v.s, text: `${shortName(si)} end`, color: sectionColor(si), path: `sections.${si}.length`, value: state.sections[si].length });
+      list.push({ id: `end:${secId(si)}`, px: cx + Math.cos(a) * sr.last.across * v.s, py: cy + Math.sin(a) * sr.last.across * v.s, text: `${shortName(si)} end`, color: sectionColor(si), path: `sections.${si}.length`, value: state.sections[si].length });
     }));
     drawMarkers(list);
     if (ui.labels) {
@@ -989,15 +1043,10 @@
       tops.forEach(o => {
         const col = sectionColor(o.si), rr = o.sr.top * v.s;
         ctx.save(); ctx.setLineDash([5, 3]); ctx.strokeStyle = col; ctx.lineWidth = 1.6;
-        ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx + rr, cy); ctx.lineTo(lx - 6, ly); ctx.stroke(); ctx.restore();
-        ctx.beginPath(); ctx.arc(cx + rr, cy, 3.5, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
-        ctx.font = '600 11px ' + FONT;
-        const txt = `${shortName(o.si)} top · R ${fmt(o.sr.top, 2)} m · H ${fmt(Rf + o.sr.top, 2)} m`;
-        const w = ctx.measureText(txt).width + 14;
-        ctx.fillStyle = '#fff'; roundRect(lx, ly - 9, w, 18, 4); ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.fillStyle = col; ctx.fillRect(lx + 4, ly - 5, 3, 10);
-        ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 10, ly + 0.5);
+        ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+        const y0 = ly;
+        label({ id: `top:${secId(o.si)}`, style: 'top', ax: cx + rr, ay: cy, color: col, leader: 'always',
+          text: `${shortName(o.si)} top · R ${fmt(o.sr.top, 2)} m · H ${fmt(Rf + o.sr.top, 2)} m`, pos: (w, h) => [lx, y0 - h / 2] });
         ly += 22;
       });
       ctx.fillStyle = '#5a7391'; ctx.font = '11px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
@@ -1036,9 +1085,18 @@
     ctx = mainCtx; CW = W; CH = H;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    hit = { mode: null, items: [], chips: [], handles: [], view: null };
+    hit = { mode: null, items: [], labels: [], hidden: 0, handles: [], view: null };
     drawView(W, H);
+    const custom = state.labels && state.labels[viewKey()];
+    $('labelTools').innerHTML = (hit.hidden ? `<button class="btn small" data-lt="show">Show hidden labels (${hit.hidden})</button>` : '') +
+      (custom ? '<button class="btn small" data-lt="reset">Reset labels</button>' : '');
   }
+  $('labelTools').addEventListener('click', e => {
+    const b = e.target.closest('[data-lt]');
+    if (!b) return;
+    if (b.dataset.lt === 'show') showHiddenLabels(); else resetLabels();
+    autosave(); drawCanvas();
+  });
 
   /* off-screen rendering for the report (PNG data URL) */
   function renderImage(view, zoom, W, H) {
@@ -1048,7 +1106,7 @@
     const saved = { ctx, CW, CH, hit, view: ui.view, zoom: ui.zoom, labels: ui.labels };
     ctx = c.getContext('2d'); ctx.setTransform(sc, 0, 0, sc, 0, 0);
     CW = W; CH = H; printing = true; ui.view = view; ui.zoom = zoom; ui.labels = true;
-    hit = { mode: null, items: [], chips: [], handles: [], view: null };
+    hit = { mode: null, items: [], labels: [], hidden: 0, handles: [], view: null };
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
     try { drawView(W, H); } finally {
       ctx = saved.ctx; CW = saved.CW; CH = saved.CH; hit = saved.hit; ui.view = saved.view; ui.zoom = saved.zoom; ui.labels = saved.labels; printing = false;
@@ -1071,14 +1129,25 @@
   /* ---------------- tooltip & on-drawing editing ---------------- */
   const tip = $('tooltip');
   const wrap = $('canvasWrap');
-  function chipAt(mx, my) { return hit.chips.slice().reverse().find(c => mx >= c.x && mx <= c.x + c.w && my >= c.y && my <= c.y + c.h); }
+  function labelAt(mx, my) { return hit.labels.slice().reverse().find(c => mx >= c.x - 2 && mx <= c.x + c.w + 2 && my >= c.y - 2 && my <= c.y + c.h + 2); }
 
   function handleAt(mx, my) { return hit.handles.find(h => h.priority && h.test(mx, my)) || hit.handles.find(h => !h.priority && h.test(mx, my)); }
-  let drag = null, dragMoved = false;
+  let drag = null, dragMoved = false, ldrag = null, redrawPending = false;
   const posOf = e => { const rc = canvas.getBoundingClientRect(); return [e.clientX - rc.left, e.clientY - rc.top]; };
+  const redraw = () => { if (redrawPending) return; redrawPending = true; requestAnimationFrame(() => { redrawPending = false; drawCanvas(); }); };
+
   canvas.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    closeMenu();
     const [mx, my] = posOf(e);
-    if (chipAt(mx, my)) return;
+    const lab = labelAt(mx, my);
+    if (lab) { // move a label
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      ldrag = { lab, sx: mx, sy: my, moved: false };
+      tip.style.display = 'none';
+      return;
+    }
     const h = handleAt(mx, my);
     if (!h) return;
     e.preventDefault();
@@ -1090,13 +1159,30 @@
     tip.style.display = 'none';
   });
   canvas.addEventListener('pointermove', e => {
-    if (!drag) return;
     const [mx, my] = posOf(e);
+    if (ldrag) {
+      if (!ldrag.moved && Math.hypot(mx - ldrag.sx, my - ldrag.sy) < 4) return;
+      ldrag.moved = true;
+      canvas.style.cursor = 'grabbing';
+      const L = ldrag.lab;
+      setLabCfg(L.id, { dx: L.x + (mx - ldrag.sx) - L.ax, dy: L.y + (my - ldrag.sy) - L.ay });
+      redraw();
+      return;
+    }
+    if (!drag) return;
     drag.h.move(mx, my, drag.st);
     dragMoved = true;
     scheduleUpdate();
   });
   const endDrag = () => {
+    if (ldrag) {
+      const L = ldrag.lab, moved = ldrag.moved;
+      ldrag = null;
+      if (moved) { autosave(); drawCanvas(); }
+      else if (L.path) openEditor(L);        // click on a value → edit the value
+      else openRename(L);                     // click on a name → rename it
+      return;
+    }
     if (!drag) return;
     drag = null; frozen = null;
     update(); renderTab();
@@ -1105,11 +1191,104 @@
   canvas.addEventListener('pointerup', endDrag);
   canvas.addEventListener('pointercancel', endDrag);
 
+  canvas.addEventListener('dblclick', e => {
+    const [mx, my] = posOf(e);
+    const lab = labelAt(mx, my);
+    if (lab) { e.preventDefault(); openRename(lab); }
+  });
+
+  /* right-click menu on a label */
+  const menu = document.createElement('div');
+  menu.className = 'lab-menu';
+  wrap.appendChild(menu);
+  function closeMenu() { menu.style.display = 'none'; }
+  document.addEventListener('pointerdown', e => { if (!menu.contains(e.target) && e.target !== canvas) closeMenu(); });
+  canvas.addEventListener('contextmenu', e => {
+    const [mx, my] = posOf(e);
+    const lab = labelAt(mx, my);
+    e.preventDefault();
+    tip.style.display = 'none';
+    const cfg = lab ? labCfg(lab.id) : {};
+    const items = [];
+    if (lab) {
+      if (lab.path) items.push(['value', 'Edit value…']);
+      items.push(['rename', 'Rename…']);
+      if (cfg.text) items.push(['name', 'Restore original name']);
+      if (cfg.dx !== undefined) items.push(['pos', 'Put back in place']);
+      items.push(['hide', 'Hide this label']);
+    }
+    const extra = [];
+    if (hit.hidden) extra.push(['show', `Show hidden labels (${hit.hidden})`]);
+    if (state.labels && state.labels[viewKey()]) extra.push(['reset', 'Reset all labels of this view']);
+    if (items.length && extra.length) items.push(['-']);
+    items.push(...extra);
+    if (!items.length) { closeMenu(); return; }
+    menu.innerHTML = items.map(it => it[0] === '-' ? '<hr>' : `<button data-a="${it[0]}">${esc(it[1])}</button>`).join('');
+    menu.style.display = 'block';
+    menu.style.left = Math.max(2, Math.min(mx, wrap.clientWidth - menu.offsetWidth - 4)) + 'px';
+    menu.style.top = Math.max(2, Math.min(my, wrap.clientHeight - menu.offsetHeight - 4)) + 'px';
+    menu.onclick = ev => {
+      const b = ev.target.closest('button');
+      if (!b) return;
+      closeMenu();
+      const a = b.dataset.a;
+      if (a === 'value') return openEditor(lab);
+      if (a === 'rename') return openRename(lab);
+      if (a === 'name') setLabCfg(lab.id, { text: undefined });
+      else if (a === 'pos') setLabCfg(lab.id, { dx: undefined, dy: undefined });
+      else if (a === 'hide') setLabCfg(lab.id, { hidden: true });
+      else if (a === 'show') showHiddenLabels();
+      else if (a === 'reset') resetLabels();
+      autosave(); drawCanvas();
+    };
+  });
+  function showHiddenLabels() {
+    const v = state.labels && state.labels[viewKey()];
+    if (v) Object.keys(v).forEach(id => setLabCfg(id, { hidden: undefined }));
+  }
+  function resetLabels() { if (state.labels) delete state.labels[viewKey()]; }
+
+  /* rename a label (empty = original name) */
+  function openRename(L) {
+    const old = wrap.querySelector('.dim-editor');
+    if (old) old.remove();
+    const cfg = labCfg(L.id);
+    const valueRe = /\s*·?\s*-?\d[\d.,]*\s*(mm|m|t|%)\s*$/;
+    const def = L.valueLabel ? L.defText.replace(valueRe, '') : L.defText;
+    const box = document.createElement('div');
+    box.className = 'dim-editor';
+    box.innerHTML = `<input type="text" value="${esc(cfg.text || def)}" placeholder="${esc(def)}"><span>${L.valueLabel ? '+ value' : 'name'}</span>`;
+    const w = Math.max(L.w + 60, 200);
+    box.style.left = Math.max(2, Math.min(wrap.clientWidth - w - 2, L.x + L.w / 2 - w / 2)) + 'px';
+    box.style.top = Math.max(2, L.y - 4) + 'px';
+    box.style.width = w + 'px';
+    wrap.appendChild(box);
+    const inp = box.querySelector('input');
+    inp.focus(); inp.select();
+    let done = false;
+    const commit = ok => {
+      if (done) return; done = true;
+      const val = inp.value.trim();
+      box.remove();
+      if (!ok) return;
+      setLabCfg(L.id, { text: val && val !== def ? val : undefined });
+      autosave(); drawCanvas();
+    };
+    inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') commit(true); else if (ev.key === 'Escape') commit(false); });
+    inp.addEventListener('blur', () => commit(true));
+  }
+
   canvas.addEventListener('mousemove', e => {
-    if (drag) return;
+    if (drag || ldrag) return;
     const rc = canvas.getBoundingClientRect();
     const mx = e.clientX - rc.left, my = e.clientY - rc.top;
-    if (chipAt(mx, my)) { canvas.style.cursor = 'pointer'; tip.style.display = 'none'; return; }
+    const lab = labelAt(mx, my);
+    if (lab) {
+      canvas.style.cursor = 'move';
+      tip.innerHTML = `<b>Drag</b> to move · <b>click</b> to ${lab.path ? 'edit the value' : 'rename'} · <b>right-click</b>: rename, hide, reset`;
+      tip.style.display = 'block'; tip.style.left = Math.min(mx + 14, rc.width - 270) + 'px'; tip.style.top = (my + 16) + 'px';
+      return;
+    }
     const hd = handleAt(mx, my);
     if (hd) { canvas.style.cursor = hd.cursor; tip.innerHTML = `Drag to change <b>${esc(hd.label)}</b>`; tip.style.display = 'block'; tip.style.left = Math.min(mx + 14, rc.width - 200) + 'px'; tip.style.top = (my + 14) + 'px'; return; }
     canvas.style.cursor = 'crosshair';
@@ -1133,15 +1312,6 @@
     tip.style.left = Math.max(4, x) + 'px'; tip.style.top = Math.max(4, y) + 'px';
   });
   canvas.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
-
-  canvas.addEventListener('click', e => {
-    if (dragMoved) return;
-    const rc = canvas.getBoundingClientRect();
-    const c = chipAt(e.clientX - rc.left, e.clientY - rc.top);
-    if (!c) return;
-    tip.style.display = 'none';
-    openEditor(c);
-  });
 
   function openEditor(c) {
     const old = wrap.querySelector('.dim-editor');

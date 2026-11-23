@@ -197,6 +197,11 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
 .std td:first-child { white-space: nowrap; color: var(--muted); }
 .std td:nth-child(2) { white-space: nowrap; color: var(--navy); }
 
+.lab-menu { position: absolute; z-index: 6; display: none; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(11,58,117,.22); padding: 4px; min-width: 200px; }
+.lab-menu button { display: block; width: 100%; text-align: left; background: none; border: none; padding: 7px 10px; border-radius: 5px; font: inherit; color: var(--ink); cursor: pointer; }
+.lab-menu button:hover { background: var(--blue-50); color: var(--navy); }
+.lab-menu hr { border: none; border-top: 1px solid var(--line); margin: 4px 0; }
+#labelTools { display: inline-flex; gap: 6px; }
 .gapmm { font-size: 11.5px; color: var(--navy); font-weight: 600; min-height: 15px; }
 
 /* ---------- A4 report (print only) ---------- */

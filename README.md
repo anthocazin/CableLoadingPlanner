@@ -42,6 +42,7 @@ Three examples are built in (*Examples…* menu): export cable on a 5 000 t turn
   - turntable / tank: *cross-section* through the centre (full diameter, with dimensions) and *plan view* of the top layers;
   - drum: *cross-section* along the axis and *side view* (one ring per layer).
   - Start and end of every section are flagged.
+- **Labels you arrange yourself** on every view: drag a label to move it (a leader line keeps it attached to what it describes), click to rename it (or to edit the value ✎), right-click to rename, hide, put back in place or reset all labels of the view. Each label is tied to its element (section, ring, bay, dimension), so it follows it when the loading order or the dimensions change. The layout is saved with the project and used in the report.
 - **Fill gauges** per compartment: length of each section, spare capacity, stack height used.
 - **Sections table**: loaded length, weight, inner end and outer end position (layer / turn / % of the turn, radius, height or distance from the flange, coiling direction), off-load order.
 - **Compartments table**: layers, turns per layer, stack used, cable VCG above the floor (for stability), spare capacity.
