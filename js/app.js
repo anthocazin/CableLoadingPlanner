@@ -417,7 +417,7 @@
     renderTab();
   });
 
-  document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => { ui.tab = b.dataset.tab; renderTab(); }));
+  document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => { ui.tab = b.dataset.tab; renderTab(); drawCanvas(); }));
 
   /* ================================================================== */
   /* Results                                                             */
@@ -646,6 +646,8 @@
 
   /* editable value on the drawing ("chip") */
   function chip(px, py, text, path, value, align) {
+    // wall / flange thickness and ring heights are shown only while the "Type" tab is open (not in the report)
+    if (/(^carrier\.rings\.\d+\.(thickness|height)|flangeThickness)$/.test(path) && (printing || ui.tab !== 'carrier')) return;
     label({ id: 'v:' + stableId(path), style: 'chip', ax: px, ay: py, text, path, value, leader: 'moved',
       pos: (w, h) => [align === 'left' ? px : align === 'right' ? px - w : px - w / 2, py - h / 2] });
   }
