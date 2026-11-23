@@ -197,6 +197,8 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
 .std td:first-child { white-space: nowrap; color: var(--muted); }
 .std td:nth-child(2) { white-space: nowrap; color: var(--navy); }
 
+.gapmm { font-size: 11.5px; color: var(--navy); font-weight: 600; min-height: 15px; }
+
 /* ---------- A4 report (print only) ---------- */
 .report { display: none; }
 @media print {

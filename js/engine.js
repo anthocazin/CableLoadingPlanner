@@ -23,11 +23,11 @@
   /* ------------------------------------------------------------------ */
   /*
    * Coil carriers (turntable / tank): a list of concentric rings ("cerces"), from the core outwards.
-   *   ring = { name, diameter (inner face Ø, m), thickness (m), height (m) }
+   *   ring = { name, diameter (inner face Ø, m), thickness (mm), height (m) }
    *   compartment k lies between the outer face of ring k and the inner face of ring k+1.
    *   across = radius (m), stack = height above floor (m).
    * Drum: barrel + flanges ("joues"); intermediate flanges split the width into bays.
-   *   drum = { barrelDiameter, flangeDiameter, flangeThickness (m), freeboard, bays: [{ name, width }] }
+   *   drum = { barrelDiameter, flangeDiameter, flangeThickness (mm), freeboard, bays: [{ name, width }] }
    *   across = axial position from the inner face of the first flange (m), stack = radius (m).
    */
   function compartments(carrier) {
@@ -38,7 +38,7 @@
       const fb = num(carrier.freeboard, 0);
       for (let k = 0; k < rings.length - 1; k++) {
         const a = rings[k], b = rings[k + 1];
-        const rMin = num(a.diameter) / 2 + num(a.thickness); // thickness in m
+        const rMin = num(a.diameter) / 2 + num(a.thickness) / 1000; // thickness in mm
         const rMax = num(b.diameter) / 2;
         const wallH = Math.min(num(a.height), num(b.height));
         out.push({
@@ -51,11 +51,13 @@
           wallHeight: wallH,
           innerRing: k, outerRing: k + 1,
           valid: rMax > rMin + EPS && wallH - fb > EPS,
+          reason: !(rMax > rMin + EPS) ? `inner Ø of "${b.name || 'ring ' + (k + 2)}" (${fmt(num(b.diameter), 2)} m) must be larger than "${a.name || 'ring ' + (k + 1)}" Ø + wall`
+            : !(wallH - fb > EPS) ? `freeboard (${fmt(fb, 2)} m) is not smaller than the wall height (${fmt(wallH, 2)} m)` : '',
         });
       }
     } else {
       const d = carrier.drum || {};
-      const tFl = num(d.flangeThickness); // m
+      const tFl = num(d.flangeThickness) / 1000; // mm → m
       const Rb = num(d.barrelDiameter) / 2;
       const Rf = num(d.flangeDiameter) / 2;
       const fb = num(d.freeboard, 0);
@@ -71,6 +73,9 @@
           stackMin: Rb, stackMax: Rf - fb,
           flangeRadius: Rf,
           valid: w > EPS && Rf - fb > Rb + EPS,
+          reason: !(w > EPS) ? 'bay width is zero'
+            : !(Rf > Rb + EPS) ? `flange Ø (${fmt(Rf * 2, 2)} m) must be larger than barrel Ø (${fmt(Rb * 2, 2)} m)`
+            : !(Rf - fb > Rb + EPS) ? `freeboard (${fmt(fb, 2)} m) leaves no room: winding depth = (flange Ø − barrel Ø) / 2 = ${fmt(Rf - Rb, 2)} m` : '',
         });
         x += w + tFl;
       });
@@ -83,8 +88,9 @@
   /* ------------------------------------------------------------------ */
   function makePlacer(comp, winding) {
     const nested = winding.stacking === 'nested';
-    const gapT = num(winding.turnGap, 0) / 1000;
-    const gapL = num(winding.layerGap, 0) / 1000;
+    // gaps are given in % of the cable OD
+    const pctT = num(winding.turnGapPct, 0) / 100;
+    const pctL = num(winding.layerGapPct, 0) / 100;
     // coil: 'inner' → first layer starts at the inner ring and goes outwards; drum: 'left' (min) / 'right' (max)
     const startAtMin = comp.kind === 'coil' ? winding.startSide !== 'outer' : winding.startSide !== 'right';
 
@@ -112,6 +118,7 @@
     }
 
     function place(d) {
+      const gapT = pctT * d, gapL = pctL * d;
       for (let guard = 0; guard < 3; guard++) {
         let edge = st.edge;
         if (st.turnInLayer === 0 && st.nestOffsetPending) edge += st.dir * d / 2; // sits in the groove
@@ -229,7 +236,7 @@
     let totalLength = 0, totalWeight = 0, momentZ = 0;
     const compRes = perComp.map(pc => {
       const c = pc.comp;
-      if (!c.valid) checks.push(chk('fail', `${c.label} (${c.name}): invalid geometry — check diameters, widths, heights and freeboard.`));
+      if (!c.valid) checks.push(chk('fail', `${c.label} (${c.name}): ${c.reason || 'invalid geometry'}.`));
       const fill = fillCompartment(c, pc.items, winding);
       let weight = 0, length = 0, mz = 0;
       pc.sectionIdx.forEach((si, j) => {
@@ -310,7 +317,7 @@
 
   function estimateTurns(comp, d, winding) {
     if (!(d > 0)) return 0;
-    const pitch = d + num(winding.turnGap, 0) / 1000;
+    const pitch = d * (1 + num(winding.turnGapPct, 0) / 100);
     return Math.max(0, Math.floor((comp.acrossMax - comp.acrossMin - d) / pitch + 1 + EPS));
   }
 

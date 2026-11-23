@@ -205,6 +205,8 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
 .std td:first-child { white-space: nowrap; color: var(--muted); }
 .std td:nth-child(2) { white-space: nowrap; color: var(--navy); }
 
+.gapmm { font-size: 11.5px; color: var(--navy); font-weight: 600; min-height: 15px; }
+
 /* ---------- A4 report (print only) ---------- */
 .report { display: none; }
 @media print {
@@ -326,7 +328,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
         <select id="zoomSelect" class="no-print" aria-label="Zoom"></select>
         <label class="no-print"><input type="checkbox" id="showLabels" checked> Labels</label>
       </div>
-      <div class="viz-hint no-print">Click a <span class="chip-demo">value ✎</span> on the drawing to change it. Hover a turn for details.</div>
+      <div class="viz-hint no-print">Click a <span class="chip-demo">value ✎</span> to type it, or <b>drag a wall, a flange or the barrel</b> with the mouse to resize it. Hover a turn for details.</div>
       <div class="canvas-wrap" id="canvasWrap">
         <canvas id="canvas"></canvas>
         <div class="tooltip" id="tooltip"></div>
@@ -382,11 +384,11 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
   /* ------------------------------------------------------------------ */
   /*
    * Coil carriers (turntable / tank): a list of concentric rings ("cerces"), from the core outwards.
-   *   ring = { name, diameter (inner face Ø, m), thickness (m), height (m) }
+   *   ring = { name, diameter (inner face Ø, m), thickness (mm), height (m) }
    *   compartment k lies between the outer face of ring k and the inner face of ring k+1.
    *   across = radius (m), stack = height above floor (m).
    * Drum: barrel + flanges ("joues"); intermediate flanges split the width into bays.
-   *   drum = { barrelDiameter, flangeDiameter, flangeThickness (m), freeboard, bays: [{ name, width }] }
+   *   drum = { barrelDiameter, flangeDiameter, flangeThickness (mm), freeboard, bays: [{ name, width }] }
    *   across = axial position from the inner face of the first flange (m), stack = radius (m).
    */
   function compartments(carrier) {
@@ -397,7 +399,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
       const fb = num(carrier.freeboard, 0);
       for (let k = 0; k < rings.length - 1; k++) {
         const a = rings[k], b = rings[k + 1];
-        const rMin = num(a.diameter) / 2 + num(a.thickness); // thickness in m
+        const rMin = num(a.diameter) / 2 + num(a.thickness) / 1000; // thickness in mm
         const rMax = num(b.diameter) / 2;
         const wallH = Math.min(num(a.height), num(b.height));
         out.push({
@@ -410,11 +412,13 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
           wallHeight: wallH,
           innerRing: k, outerRing: k + 1,
           valid: rMax > rMin + EPS && wallH - fb > EPS,
+          reason: !(rMax > rMin + EPS) ? `inner Ø of "${b.name || 'ring ' + (k + 2)}" (${fmt(num(b.diameter), 2)} m) must be larger than "${a.name || 'ring ' + (k + 1)}" Ø + wall`
+            : !(wallH - fb > EPS) ? `freeboard (${fmt(fb, 2)} m) is not smaller than the wall height (${fmt(wallH, 2)} m)` : '',
         });
       }
     } else {
       const d = carrier.drum || {};
-      const tFl = num(d.flangeThickness); // m
+      const tFl = num(d.flangeThickness) / 1000; // mm → m
       const Rb = num(d.barrelDiameter) / 2;
       const Rf = num(d.flangeDiameter) / 2;
       const fb = num(d.freeboard, 0);
@@ -430,6 +434,9 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
           stackMin: Rb, stackMax: Rf - fb,
           flangeRadius: Rf,
           valid: w > EPS && Rf - fb > Rb + EPS,
+          reason: !(w > EPS) ? 'bay width is zero'
+            : !(Rf > Rb + EPS) ? `flange Ø (${fmt(Rf * 2, 2)} m) must be larger than barrel Ø (${fmt(Rb * 2, 2)} m)`
+            : !(Rf - fb > Rb + EPS) ? `freeboard (${fmt(fb, 2)} m) leaves no room: winding depth = (flange Ø − barrel Ø) / 2 = ${fmt(Rf - Rb, 2)} m` : '',
         });
         x += w + tFl;
       });
@@ -442,8 +449,9 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
   /* ------------------------------------------------------------------ */
   function makePlacer(comp, winding) {
     const nested = winding.stacking === 'nested';
-    const gapT = num(winding.turnGap, 0) / 1000;
-    const gapL = num(winding.layerGap, 0) / 1000;
+    // gaps are given in % of the cable OD
+    const pctT = num(winding.turnGapPct, 0) / 100;
+    const pctL = num(winding.layerGapPct, 0) / 100;
     // coil: 'inner' → first layer starts at the inner ring and goes outwards; drum: 'left' (min) / 'right' (max)
     const startAtMin = comp.kind === 'coil' ? winding.startSide !== 'outer' : winding.startSide !== 'right';
 
@@ -471,6 +479,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     }
 
     function place(d) {
+      const gapT = pctT * d, gapL = pctL * d;
       for (let guard = 0; guard < 3; guard++) {
         let edge = st.edge;
         if (st.turnInLayer === 0 && st.nestOffsetPending) edge += st.dir * d / 2; // sits in the groove
@@ -588,7 +597,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     let totalLength = 0, totalWeight = 0, momentZ = 0;
     const compRes = perComp.map(pc => {
       const c = pc.comp;
-      if (!c.valid) checks.push(chk('fail', `${c.label} (${c.name}): invalid geometry — check diameters, widths, heights and freeboard.`));
+      if (!c.valid) checks.push(chk('fail', `${c.label} (${c.name}): ${c.reason || 'invalid geometry'}.`));
       const fill = fillCompartment(c, pc.items, winding);
       let weight = 0, length = 0, mz = 0;
       pc.sectionIdx.forEach((si, j) => {
@@ -669,7 +678,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
 
   function estimateTurns(comp, d, winding) {
     if (!(d > 0)) return 0;
-    const pitch = d + num(winding.turnGap, 0) / 1000;
+    const pitch = d * (1 + num(winding.turnGapPct, 0) / 100);
     return Math.max(0, Math.floor((comp.acrossMax - comp.acrossMin - d) / pitch + 1 + EPS));
   }
 
@@ -715,18 +724,18 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
   /* Project data                                                        */
   /* ================================================================== */
   const defaultRings = () => [
-    { name: 'Core', diameter: 9, thickness: 0.025, height: 6.5 },
-    { name: 'Outer wall', diameter: 30, thickness: 0.025, height: 6.5 },
+    { name: 'Core', diameter: 9, thickness: 25, height: 6.5 },
+    { name: 'Outer wall', diameter: 30, thickness: 25, height: 6.5 },
   ];
-  const defaultDrum = () => ({ barrelDiameter: 2.8, flangeDiameter: 4.6, flangeThickness: 0.04, freeboard: 0.1, bays: [{ name: 'Bay 1', width: 1.4 }] });
+  const defaultDrum = () => ({ barrelDiameter: 2.8, flangeDiameter: 4.6, flangeThickness: 40, freeboard: 0.1, bays: [{ name: 'Bay 1', width: 1.4 }] });
   const info = () => ({ client: '', vessel: '', preparedBy: '', date: today(), reference: '', notes: '' });
 
   const EXAMPLES = {
     turntable: () => ({
-      schema: 2, name: 'Export cable — 5 000 t turntable',
+      schema: 3, name: 'Export cable — 5 000 t turntable',
       info: Object.assign(info(), { client: 'Offshore Wind Farm', vessel: 'Cable Lay Vessel', reference: 'EXP-LOAD-001' }),
       carrier: { type: 'turntable', name: 'Main turntable', maxLoad: 5000, tare: 0, freeboard: 0.3, rings: defaultRings(), drum: defaultDrum() },
-      winding: { stacking: 'square', turnGap: 5, layerGap: 0, startSide: 'outer' },
+      winding: { stacking: 'square', turnGapPct: 5, layerGapPct: 0, startSide: 'outer' },
       cables: [{ id: 'c1', name: '220 kV export 3C 1200 mm²', od: 245, weight: 92, mbr: 4.0, maxLayers: 0, color: '#3b6ea5' }],
       sections: [
         { id: uid(), name: 'Export section 1', cableId: 'c1', length: 18000, compartment: 0, color: PALETTE[0] },
@@ -735,18 +744,18 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
       ],
     }),
     tank: () => ({
-      schema: 2, name: 'Inter-array cables — static tank',
+      schema: 3, name: 'Inter-array cables — static tank',
       info: Object.assign(info(), { client: 'Offshore Wind Farm', vessel: 'Cable Lay Vessel', reference: 'IAC-TANK-01' }),
       carrier: {
         type: 'tank', name: 'Static tank T1', maxLoad: 2500, tare: 0, freeboard: 0.2,
         rings: [
-          { name: 'Core', diameter: 6, thickness: 0.02, height: 4 },
-          { name: 'Inner cerce', diameter: 14, thickness: 0.02, height: 4 },
-          { name: 'Outer wall', diameter: 22, thickness: 0.02, height: 4.5 },
+          { name: 'Core', diameter: 6, thickness: 20, height: 4 },
+          { name: 'Inner cerce', diameter: 14, thickness: 20, height: 4 },
+          { name: 'Outer wall', diameter: 22, thickness: 20, height: 4.5 },
         ],
         drum: defaultDrum(),
       },
-      winding: { stacking: 'square', turnGap: 5, layerGap: 0, startSide: 'outer' },
+      winding: { stacking: 'square', turnGapPct: 5, layerGapPct: 0, startSide: 'outer' },
       cables: [
         { id: 'c1', name: '66 kV array 3C 240 mm²', od: 135, weight: 32, mbr: 2.0, maxLayers: 0, color: '#1f8f4e' },
         { id: 'c2', name: '66 kV array 3C 630 mm²', od: 160, weight: 48, mbr: 2.4, maxLayers: 0, color: '#8e44ad' },
@@ -759,11 +768,11 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
       ],
     }),
     drum: () => ({
-      schema: 2, name: '33 kV cable — split drum',
+      schema: 3, name: '33 kV cable — split drum',
       info: Object.assign(info(), { reference: 'DRUM-0425' }),
       carrier: { type: 'drum', name: 'Drum D-4600', maxLoad: 60, tare: 12, freeboard: 0.3, rings: defaultRings(),
-        drum: { barrelDiameter: 2.8, flangeDiameter: 4.6, flangeThickness: 0.04, freeboard: 0.1, bays: [{ name: 'Bay A', width: 1.4 }, { name: 'Bay B', width: 1.4 }] } },
-      winding: { stacking: 'square', turnGap: 0, layerGap: 0, startSide: 'left' },
+        drum: { barrelDiameter: 2.8, flangeDiameter: 4.6, flangeThickness: 40, freeboard: 0.1, bays: [{ name: 'Bay A', width: 1.4 }, { name: 'Bay B', width: 1.4 }] } },
+      winding: { stacking: 'square', turnGapPct: 0, layerGapPct: 0, startSide: 'left' },
       cables: [{ id: 'c1', name: '33 kV 3C 185 mm²', od: 110, weight: 18, mbr: 1.3, maxLayers: 0, color: '#1565c0' }],
       sections: [
         { id: uid(), name: 'Cable A', cableId: 'c1', length: 900, compartment: 0, color: PALETTE[0] },
@@ -772,33 +781,43 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     }),
   };
   const emptyProject = () => ({
-    schema: 2, name: '', info: info(),
+    schema: 3, name: '', info: info(),
     carrier: { type: 'turntable', name: '', maxLoad: 0, tare: 0, freeboard: 0.3, rings: defaultRings(), drum: defaultDrum() },
-    winding: { stacking: 'square', turnGap: 5, layerGap: 0, startSide: 'outer' },
+    winding: { stacking: 'square', turnGapPct: 5, layerGapPct: 0, startSide: 'outer' },
     cables: [{ id: uid(), name: 'Cable 1', od: 150, weight: 40, mbr: 2, maxLayers: 0, color: PALETTE[1] }],
     sections: [],
   });
 
   function normalise(p) {
     const base = emptyProject();
-    const legacyMm = p && !p.schema; // version 1 stored ring / flange thicknesses in mm
+    const schema = p ? (p.schema || 1) : 3; // 1: thickness mm, gaps mm · 2: thickness m, gaps mm · 3: thickness mm, gaps % OD
     p = Object.assign(base, p || {});
-    p.schema = 2;
+    p.schema = 3;
     p.info = Object.assign(info(), p.info || {});
     p.carrier = Object.assign(emptyProject().carrier, p.carrier || {});
     if (!Array.isArray(p.carrier.rings) || p.carrier.rings.length < 2) p.carrier.rings = defaultRings();
     p.carrier.drum = Object.assign(defaultDrum(), p.carrier.drum || {});
     if (!Array.isArray(p.carrier.drum.bays) || !p.carrier.drum.bays.length) p.carrier.drum.bays = defaultDrum().bays;
-    if (legacyMm) {
-      p.carrier.rings.forEach(r => { r.thickness = num(r.thickness) / 1000; });
-      p.carrier.drum.flangeThickness = num(p.carrier.drum.flangeThickness) / 1000;
+    if (schema === 2) {
+      p.carrier.rings.forEach(r => { r.thickness = Math.round(num(r.thickness) * 1000 * 10) / 10; });
+      p.carrier.drum.flangeThickness = Math.round(num(p.carrier.drum.flangeThickness) * 1000 * 10) / 10;
     }
-    p.winding = Object.assign(emptyProject().winding, p.winding || {});
+    p.winding = Object.assign({ stacking: 'square', startSide: 'outer' }, p.winding || {});
+    if (schema < 3 || p.winding.turnGapPct === undefined) applyStandard(p);
     p.cables = Array.isArray(p.cables) ? p.cables : [];
     p.sections = Array.isArray(p.sections) ? p.sections : [];
     p.cables.forEach(c => { if (!c.id) c.id = uid(); });
     p.sections.forEach((s, i) => { if (!s.id) s.id = uid(); if (!s.color) s.color = PALETTE[i % PALETTE.length]; });
     return p;
+  }
+
+  /* standard planning values: square stacking, 0 % between layers, 5 % OD between turns when coiling, 0 % on a drum */
+  function applyStandard(p) {
+    const coil = (CARRIER_TYPES[p.carrier.type] || CARRIER_TYPES.turntable).kind === 'coil';
+    p.winding.stacking = 'square';
+    p.winding.turnGapPct = coil ? 5 : 0;
+    p.winding.layerGapPct = 0;
+    delete p.winding.turnGap; delete p.winding.layerGap;
   }
 
   function loadAutosave() {
@@ -827,10 +846,10 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     const type = opts.type || 'number';
     const unit = opts.unit ? ` <span class="unit">(${opts.unit})</span>` : '';
     const attrs = `data-bind="${path}" data-type="${type === 'number' ? 'num' : 'text'}"${opts.rerender ? ' data-rerender="1"' : ''}`;
-    const step = opts.step ? ` step="${opts.step}"` : ' step="any"';
+
     const input = type === 'textarea'
       ? `<textarea ${attrs}>${esc(value)}</textarea>`
-      : `<input type="${type}" ${attrs} value="${esc(value)}"${type === 'number' ? step + ' min="0"' : ''}${opts.placeholder ? ` placeholder="${esc(opts.placeholder)}"` : ''}>`;
+      : `<input type="${type === 'number' ? 'text' : type}" ${attrs} value="${esc(value)}"${type === 'number' ? ' inputmode="decimal" autocomplete="off"' : ''}${opts.placeholder ? ` placeholder="${esc(opts.placeholder)}"` : ''}>`;
     return `<label class="f${opts.full ? ' full' : ''}">${esc(label)}${unit}${input}</label>`;
   }
 
@@ -843,33 +862,33 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
       field(kind() === 'coil' ? 'Empty weight (tare)' : 'Empty drum weight (tare)', 'carrier.tare', c.tare, { unit: 't' }) + '</div>';
     if (kind() === 'coil') {
       h += '<h3>Rings / cerces (from the core outwards)</h3>';
-      h += '<table class="edit"><thead><tr><th>Name</th><th>Inner Ø (m)</th><th>Wall thk (m)</th><th>Height (m)</th><th></th></tr></thead><tbody>';
+      h += '<table class="edit"><thead><tr><th>Name</th><th>Inner Ø (m)</th><th>Wall (mm)</th><th>Height (m)</th><th></th></tr></thead><tbody>';
       c.rings.forEach((r, i) => {
         h += `<tr><td><input data-bind="carrier.rings.${i}.name" data-type="text" value="${esc(r.name)}"></td>
-          <td><input type="number" step="any" min="0" data-bind="carrier.rings.${i}.diameter" data-type="num" data-rerender="sortRings" value="${esc(r.diameter)}"></td>
-          <td><input type="number" step="any" min="0" data-bind="carrier.rings.${i}.thickness" data-type="num" value="${esc(r.thickness)}"></td>
-          <td><input type="number" step="any" min="0" data-bind="carrier.rings.${i}.height" data-type="num" value="${esc(r.height)}"></td>
+          <td><input type="text" inputmode="decimal" autocomplete="off" data-bind="carrier.rings.${i}.diameter" data-type="num" data-rerender="sortRings" value="${esc(r.diameter)}"></td>
+          <td><input type="text" inputmode="decimal" autocomplete="off" data-bind="carrier.rings.${i}.thickness" data-type="num" value="${esc(r.thickness)}"></td>
+          <td><input type="text" inputmode="decimal" autocomplete="off" data-bind="carrier.rings.${i}.height" data-type="num" value="${esc(r.height)}"></td>
           <td><button class="icon-btn del" data-action="delRing" data-i="${i}" title="Remove ring" ${c.rings.length <= 2 ? 'disabled' : ''}>✕</button></td></tr>`;
       });
       h += '</tbody></table><button class="btn add" data-action="addRing">+ Add a ring / cerce (creates a compartment)</button>';
       h += '<div class="grid2" style="margin-top:10px">' + field('Freeboard', 'carrier.freeboard', c.freeboard, { unit: 'm' }) + '</div>';
-      h += '<div class="hint"><b>Freeboard</b> = clearance kept between the top of the cable stack and the top of the walls. The cable is never coiled higher than <i>wall height − freeboard</i>: it keeps the top turns inside the walls (vessel motions, loading arm, crossovers).<br><br>Inner Ø = diameter of the cable-side face of the ring. Each space between two rings is a compartment: the first ring is the core, the last one the outer wall. All dimensions in metres. You can also click the dimensions on the drawing to edit them.</div>';
+      h += '<div class="hint"><b>Freeboard</b> = clearance kept between the top of the cable stack and the top of the walls. The cable is never coiled higher than <i>wall height − freeboard</i>: it keeps the top turns inside the walls (vessel motions, loading arm, crossovers).<br><br>Inner Ø = diameter of the cable-side face of the ring. Each space between two rings is a compartment: the first ring is the core, the last one the outer wall. Dimensions in metres, wall thickness in mm. Click a value on the drawing to type it, or drag a wall to resize.</div>';
     } else {
       const d = c.drum;
       h += '<h3>Drum geometry</h3><div class="grid2">' +
         field('Barrel (core) Ø', 'carrier.drum.barrelDiameter', d.barrelDiameter, { unit: 'm' }) +
         field('Flange Ø', 'carrier.drum.flangeDiameter', d.flangeDiameter, { unit: 'm' }) +
-        field('Flange thickness', 'carrier.drum.flangeThickness', d.flangeThickness, { unit: 'm' }) +
+        field('Flange thickness', 'carrier.drum.flangeThickness', d.flangeThickness, { unit: 'mm' }) +
         field('Freeboard', 'carrier.drum.freeboard', d.freeboard, { unit: 'm' }) + '</div>';
       h += '<h3>Bays between flanges (from left to right)</h3>';
       h += '<table class="edit"><thead><tr><th>Name</th><th>Inner width (m)</th><th></th></tr></thead><tbody>';
       d.bays.forEach((b, i) => {
         h += `<tr><td><input data-bind="carrier.drum.bays.${i}.name" data-type="text" value="${esc(b.name)}"></td>
-          <td><input type="number" step="any" min="0" data-bind="carrier.drum.bays.${i}.width" data-type="num" value="${esc(b.width)}"></td>
+          <td><input type="text" inputmode="decimal" autocomplete="off" data-bind="carrier.drum.bays.${i}.width" data-type="num" value="${esc(b.width)}"></td>
           <td><button class="icon-btn del" data-action="delBay" data-i="${i}" title="Remove bay" ${d.bays.length <= 1 ? 'disabled' : ''}>✕</button></td></tr>`;
       });
       h += '</tbody></table><button class="btn add" data-action="addBay">+ Add a bay (adds an intermediate flange)</button>';
-      h += '<div class="hint"><b>Freeboard</b> = clearance kept between the top cable layer and the rim of the flanges (radial distance). The cable is never wound above <i>flange radius − freeboard</i>: it protects the cable when the drum is handled, lifted or set down.<br><br>Inner width = clear distance between two flanges. Several bays = split drum with intermediate flanges; each bay is loaded independently. All dimensions in metres. You can also click the dimensions on the drawing to edit them.</div>';
+      h += '<div class="hint"><b>Freeboard</b> = clearance kept between the top cable layer and the rim of the flanges (radial distance). The cable is never wound above <i>flange radius − freeboard</i>: it protects the cable when the drum is handled, lifted or set down.<br><br>Inner width = clear distance between two flanges. Several bays = split drum with intermediate flanges; each bay is loaded independently. Dimensions in metres, flange thickness in mm. Click a value on the drawing to type it, or drag a flange / the barrel to resize.</div>';
     }
     h += '<h3>Compartments</h3><div class="derived" id="derived"></div>';
     return h;
@@ -906,7 +925,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
           <input class="full" data-bind="sections.${i}.name" data-type="text" value="${esc(s.name)}" placeholder="Section name">
           <label class="f">Cable<select data-bind="sections.${i}.cableId" data-type="text">${state.cables.map(c => `<option value="${esc(c.id)}"${c.id === s.cableId ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>
           <label class="f">${kind() === 'coil' ? 'Compartment' : 'Bay'}<select data-bind="sections.${i}.compartment" data-type="num">${opts.map(o => `<option value="${o.v}"${o.v === (s.compartment | 0) ? ' selected' : ''}>${esc(o.t)}</option>`).join('')}</select></label>
-          <label class="f full">Length <span class="unit">(m)</span><span class="len-wrap"><input type="number" step="any" min="0" data-bind="sections.${i}.length" data-type="num" value="${esc(s.length)}"><button class="btn" data-action="fillMax" data-i="${i}" title="Set the length to the maximum this section can take">Max</button></span></label>
+          <label class="f full">Length <span class="unit">(m)</span><span class="len-wrap"><input type="text" inputmode="decimal" autocomplete="off" data-bind="sections.${i}.length" data-type="num" value="${esc(s.length)}"><button class="btn" data-action="fillMax" data-i="${i}" title="Set the length to the maximum this section can take">Max</button></span></label>
         </div>
         <div class="ctrl">
           <button class="icon-btn" data-action="up" data-i="${i}" title="Load earlier" ${i === 0 ? 'disabled' : ''}>▲</button>
@@ -929,8 +948,8 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
       <label class="f full">Stacking of layers<select data-bind="winding.stacking" data-type="text">
         <option value="square"${w.stacking !== 'nested' ? ' selected' : ''}>Square — each turn on top of the one below (conservative)</option>
         <option value="nested"${w.stacking === 'nested' ? ' selected' : ''}>Nested — turns sit in the grooves (close-packed)</option></select></label>
-      ${field('Gap between turns', 'winding.turnGap', w.turnGap, { unit: 'mm' })}
-      ${field('Gap between layers', 'winding.layerGap', w.layerGap, { unit: 'mm' })}
+      <label class="f">Gap between turns <span class="unit">(% of OD)</span><input type="text" inputmode="decimal" autocomplete="off" data-bind="winding.turnGapPct" data-type="num" value="${esc(w.turnGapPct)}"><span class="gapmm" id="gapmm-turn"></span></label>
+      <label class="f">Gap between layers <span class="unit">(% of OD)</span><input type="text" inputmode="decimal" autocomplete="off" data-bind="winding.layerGapPct" data-type="num" value="${esc(w.layerGapPct)}"><span class="gapmm" id="gapmm-layer"></span></label>
       <label class="f full">First layer starts at<select data-bind="winding.startSide" data-type="text">${side}</select></label>
     </div>
     ${standardBox()}
@@ -944,19 +963,26 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     </div>`;
   }
 
+  /* gap in % of OD → "(12 mm)" for the cable(s) of the project */
+  function gapMm(pct) {
+    const ods = [...new Set(state.cables.map(c => num(c.od)).filter(v => v > 0))];
+    if (!ods.length) return '';
+    const mm = ods.map(od => num(pct) / 100 * od);
+    const lo = Math.min(...mm), hi = Math.max(...mm);
+    const f = v => fmt(v, v < 10 && v > 0 ? 1 : 0);
+    return `(${Math.abs(hi - lo) < 0.05 ? f(lo) : f(lo) + '–' + f(hi)} mm)`;
+  }
+
   function standardBox() {
-    const ods = state.cables.map(c => num(c.od)).filter(v => v > 0);
-    const maxOD = ods.length ? Math.max(...ods) : 0;
     const coil = kind() === 'coil';
-    const turnStd = coil ? Math.round(0.05 * maxOD) : 0;
-    return `<div class="std"><div class="std-title">Standard planning values</div>
+    return `<div class="std"><div class="std-title">Standard planning values ${coil ? '— coiling' : '— drum winding'}</div>
       <table>
-        <tr><td>Gap between layers</td><td><b>0 mm</b></td><td>each layer rests directly on the layer below. The layer pitch is then 1.0 × OD (square) or 0.866 × OD (nested, sin 60°).</td></tr>
-        <tr><td>Gap between turns</td><td><b>${coil ? '≈ 5 % OD' : '0 mm'}</b></td><td>${coil ? `allowance for hand coiling in a tank / on a turntable${maxOD ? ` (≈ ${turnStd} mm for Ø ${fmt(maxOD, 0)} mm)` : ''}.` : 'tight, even winding with a level-wind.'}</td></tr>
+        <tr><td>Gap between layers</td><td><b>0 % OD</b></td><td>(0 mm) each layer rests directly on the layer below: layer pitch 1.0 × OD (square) or 0.866 × OD (nested, sin 60°).</td></tr>
+        <tr><td>Gap between turns</td><td><b>${coil ? '5 % OD' : '0 % OD'}</b></td><td>${gapMm(coil ? 5 : 0)} ${coil ? 'allowance for coiling in a tank / on a turntable.' : 'tight, even winding with a level-wind.'}</td></tr>
         <tr><td>Stacking</td><td><b>Square</b></td><td>conservative basis; nested = theoretical maximum.</td></tr>
         <tr><td>Working capacity</td><td><b>≈ 80 %</b></td><td>of the theoretical capacity, to allow for imperfect winding.</td></tr>
       </table>
-      <button class="btn small" data-action="std">Apply standard values</button></div>`;
+      <button class="btn small" data-action="std">Reset to standard values</button></div>`;
   }
 
   function renderTab() {
@@ -969,6 +995,9 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
   /* small live info inside the input panel */
   function refreshInputMeta() {
     if (!result) return;
+    const gt = $('gapmm-turn'), gl = $('gapmm-layer');
+    if (gt) gt.textContent = gapMm(state.winding.turnGapPct);
+    if (gl) gl.textContent = gapMm(state.winding.layerGapPct);
     const d = $('derived');
     if (d) {
       d.innerHTML = result.compartments.map(cr => {
@@ -1006,7 +1035,8 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
   function readInput(el) {
     if (el.dataset.type === 'num') {
       if (el.tagName === 'SELECT') return parseInt(el.value, 10) || 0;
-      return el.value === '' ? '' : num(el.value, 0);
+      const v = el.value.trim();
+      return v === '' ? '' : num(v.replace(/\s/g, ''), 0); // accepts 0,5 and 0.5
     }
     return el.value;
   }
@@ -1031,6 +1061,9 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     if (el.dataset.rerender === 'sortRings') state.carrier.rings.sort((a, b) => num(a.diameter) - num(b.diameter));
     if (el.tagName === 'SELECT' || el.dataset.rerender || el.type === 'color') { update(); renderTab(); } else scheduleUpdate();
   });
+  $('tabBody').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); e.target.blur(); }
+  });
   $('tabBody').addEventListener('click', e => {
     const b = e.target.closest('[data-action]');
     if (!b) return;
@@ -1040,22 +1073,19 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
       case 'type': {
         const wasCoil = kind() === 'coil';
         c.type = b.dataset.value;
-        if (wasCoil !== (kind() === 'coil')) state.winding.startSide = kind() === 'coil' ? 'outer' : 'left';
+        if (wasCoil !== (kind() === 'coil')) { state.winding.startSide = kind() === 'coil' ? 'outer' : 'left'; applyStandard(state); }
         ui.zoom = 'all'; ui.view = 'section';
         break;
       }
       case 'std': {
-        const ods = state.cables.map(x => num(x.od)).filter(v => v > 0);
-        state.winding.layerGap = 0;
-        state.winding.stacking = 'square';
-        state.winding.turnGap = kind() === 'coil' && ods.length ? Math.round(0.05 * Math.max(...ods)) : 0;
+        applyStandard(state);
         break;
       }
       case 'addRing': {
         const last = c.rings[c.rings.length - 1];
         const prev = c.rings[c.rings.length - 2];
         const dNew = (num(prev.diameter) + num(last.diameter)) / 2;
-        c.rings.splice(c.rings.length - 1, 0, { name: 'Cerce ' + (c.rings.length - 1), diameter: Math.round(dNew * 100) / 100, thickness: num(last.thickness) || 0.02, height: num(last.height) });
+        c.rings.splice(c.rings.length - 1, 0, { name: 'Cerce ' + (c.rings.length - 1), diameter: Math.round(dNew * 100) / 100, thickness: num(last.thickness) || 20, height: num(last.height) });
         break;
       }
       case 'delRing': c.rings.splice(i, 1); break;
@@ -1171,7 +1201,11 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
   const mainCtx = canvas.getContext('2d');
   let ctx = mainCtx;
   let CW = 0, CH = 0, printing = false;
-  let hit = { mode: null, items: [], chips: [], view: null };
+  let hit = { mode: null, items: [], chips: [], handles: [], view: null };
+  let frozen = null; // drawing scale kept still while a wall is dragged
+  const r2 = v => Math.round(v * 100) / 100;
+  const tOf = r => Math.max(num(r.thickness) / 1000, 0);
+  function addHandle(h) { if (!printing) hit.handles.push(h); }
   const STEEL = '#a9bccf', STEEL_D = '#5a7391', INK = '#0b3a75', BLUE = '#1a6fd6', LIMIT = '#d64545';
   const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
 
@@ -1193,12 +1227,13 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
   }
 
   function makeView(world, W, H, pad) {
+    if (frozen && !printing) world = frozen;
     const sx = (W - pad.l - pad.r) / (world.x1 - world.x0);
     const sy = (H - pad.t - pad.b) / (world.y1 - world.y0);
     const s = Math.min(sx, sy);
     const ox = pad.l + ((W - pad.l - pad.r) - s * (world.x1 - world.x0)) / 2;
     const oy = pad.t + ((H - pad.t - pad.b) - s * (world.y1 - world.y0)) / 2;
-    return { s, world, X: x => ox + (x - world.x0) * s, Y: y => oy + (world.y1 - y) * s };
+    return { s, world, X: x => ox + (x - world.x0) * s, Y: y => oy + (world.y1 - y) * s, invX: px => world.x0 + (px - ox) / s, invY: py => world.y1 - (py - oy) / s };
   }
 
   function drawAxes(v, xLabel, yLabel, opts) {
@@ -1214,7 +1249,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
       for (let x = Math.ceil(w.x0 / xs) * xs; x <= w.x1 + 1e-9; x += xs) {
         const px = v.X(x);
         ctx.beginPath(); ctx.moveTo(px, yb); ctx.lineTo(px, yb + 4); ctx.stroke();
-        ctx.fillText(fmt(Math.abs(x) < 1e-9 ? 0 : x, xs < 1 ? 1 : 0), px, yb + 6);
+        ctx.fillText(fmt(Math.abs(x) < 1e-9 ? 0 : x, xs < 0.1 ? 2 : xs < 1 ? 1 : 0), px, yb + 6);
       }
       ctx.textBaseline = 'bottom';
       ctx.fillText(xLabel, (v.X(w.x0) + v.X(w.x1)) / 2, CH - 2);
@@ -1223,7 +1258,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     for (let y = Math.ceil(w.y0 / ys) * ys; y <= (opts.yMax !== undefined ? opts.yMax : w.y1) + 1e-9; y += ys) {
       const py = v.Y(y);
       ctx.beginPath(); ctx.moveTo(xl - 4, py); ctx.lineTo(xl, py); ctx.stroke();
-      ctx.fillText(fmt(Math.abs(y) < 1e-9 ? 0 : y, ys < 1 ? 1 : 0), xl - 6, py);
+      ctx.fillText(fmt(Math.abs(y) < 1e-9 ? 0 : y, ys < 0.1 ? 2 : ys < 1 ? 1 : 0), xl - 6, py);
     }
     ctx.save(); ctx.translate(12, (v.Y(w.y0) + v.Y(w.y1)) / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(yLabel, 0, 0); ctx.restore();
     ctx.restore();
@@ -1354,13 +1389,13 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     const full = ui.zoom === 'all';
     const hMax = Math.max(...rings.map(r => num(r.height)), 0.1);
     const outer = rings[rings.length - 1];
-    const Rout = num(outer.diameter) / 2 + num(outer.thickness);
+    const Rout = num(outer.diameter) / 2 + num(outer.thickness) / 1000;
     let x0, x1, shown = rings;
     if (full) { x0 = -Rout; x1 = Rout; }
     else {
       const c = crs[0].comp;
       shown = [rings[c.innerRing], rings[c.outerRing]];
-      x0 = num(shown[0].diameter) / 2; x1 = c.acrossMax + num(shown[1].thickness);
+      x0 = num(shown[0].diameter) / 2; x1 = c.acrossMax + num(shown[1].thickness) / 1000;
     }
     const spanX = x1 - x0;
     const padB = full ? 26 + rings.length * 26 : 40;
@@ -1374,15 +1409,31 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
       ctx.beginPath(); ctx.moveTo(v.X(0), v.Y(world.y0)); ctx.lineTo(v.X(0), v.Y(hMax) - 30); ctx.stroke(); ctx.restore();
       ctx.fillStyle = '#8aa1ba'; ctx.font = '600 11px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('CL', v.X(0), v.Y(hMax) - 32);
     }
-    // walls
+    // walls (+ drag handles: wall → diameter, top of wall → height)
     shown.forEach(r => {
-      const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness), 0);
-      sides.forEach(sg => rect(v, sg * ri, 0, sg * ro, num(r.height), STEEL, STEEL_D));
+      const ri = num(r.diameter) / 2, ro = ri + tOf(r), h = num(r.height);
+      const k = rings.indexOf(r);
+      sides.forEach(sg => {
+        rect(v, sg * ri, 0, sg * ro, h, STEEL, STEEL_D);
+        const xa = v.X(sg * ri), xb = v.X(sg * ro), xl = Math.min(xa, xb) - 6, xr = Math.max(xa, xb) + 6, yt = v.Y(h), yb = v.Y(0);
+        addHandle({ cursor: 'ns-resize', label: `${r.name} height`,
+          test: (mx, my) => mx >= xl && mx <= xr && Math.abs(my - yt) <= 7,
+          start: (mx, my) => ({ off: h - v.invY(my) }),
+          move: (mx, my, st) => { state.carrier.rings[r._i].height = r2(Math.max(0.1, v.invY(my) + st.off)); } });
+        addHandle({ cursor: 'ew-resize', label: `${r.name} diameter`,
+          test: (mx, my) => mx >= xl && mx <= xr && my > yt + 7 && my <= yb,
+          start: (mx) => ({ off: ri - Math.abs(v.invX(mx)) }),
+          move: (mx, my, st) => {
+            const lo = k > 0 ? num(rings[k - 1].diameter) / 2 + tOf(rings[k - 1]) + 0.05 : 0.05;
+            const hi = k < rings.length - 1 ? num(rings[k + 1].diameter) / 2 - tOf(r) - 0.05 : 1e6;
+            state.carrier.rings[r._i].diameter = r2(2 * Math.min(hi, Math.max(lo, Math.abs(v.invX(mx)) + st.off)));
+          } });
+      });
     });
     // compartments: limits and turns
     crs.forEach((cr, k) => {
       const c = cr.comp;
-      if (!c.valid) return;
+      if (!c.valid) { invalidNote(v.X((c.acrossMin + c.acrossMax) / 2), v.Y(c.wallHeight / 2), c.reason); return; }
       sides.forEach(sg => {
         dashed(v, sg * c.acrossMin, sg * c.acrossMax, c.stackMax, LIMIT, '');
         if (cr.fill.turns.length) dashed(v, sg * c.acrossMin, sg * c.acrossMax, cr.fill.top, INK, '');
@@ -1404,18 +1455,18 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     });
     // dimensions of the rings
     shown.forEach((r, k) => {
-      const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness), 0), h = num(r.height);
+      const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness) / 1000, 0), h = num(r.height);
       const pxR = v.X((ri + ro) / 2), top = v.Y(h);
       chip(pxR, top - 12, `H ${fmt(h, 2)} m`, `carrier.rings.${r._i}.height`, r.height);
       if (ui.labels) { ctx.fillStyle = STEEL_D; ctx.font = '600 10.5px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(r.name || '', full ? v.X(-(ri + ro) / 2) : pxR, full ? top - 24 : top - 24); }
       if (full) {
-        chip(v.X(-(ri + ro) / 2), top - 12, `t ${fmt(num(r.thickness), 3)} m`, `carrier.rings.${r._i}.thickness`, r.thickness);
+        chip(v.X(-(ri + ro) / 2), top - 12, `t ${fmt(num(r.thickness), 0)} mm`, `carrier.rings.${r._i}.thickness`, r.thickness);
         const py = v.Y(world.y0) + 16 + k * 26;
         dimLine(v.X(-ri), py, v.X(ri), py, [v.Y(0), v.Y(0)]);
         chip(v.X(0), py, `Ø ${fmt(num(r.diameter), 2)} m  ${r.name || ''}`, `carrier.rings.${r._i}.diameter`, r.diameter);
       } else {
         chip(pxR, top - 42, `Ø ${fmt(num(r.diameter), 2)} m`, `carrier.rings.${r._i}.diameter`, r.diameter);
-        chip(pxR, top - 62, `t ${fmt(num(r.thickness), 3)} m`, `carrier.rings.${r._i}.thickness`, r.thickness);
+        chip(pxR, top - 62, `t ${fmt(num(r.thickness), 0)} mm`, `carrier.rings.${r._i}.thickness`, r.thickness);
       }
     });
     sectionEndMarkers(v, crs, t => [t.across, t.stack]);
@@ -1427,7 +1478,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     const d = state.carrier.drum;
     const crs = selectedComps();
     if (!crs.length) return noData('No bay');
-    const tFl = Math.max(num(d.flangeThickness), 0);
+    const tFl = Math.max(num(d.flangeThickness) / 1000, 0);
     const Rb = num(d.barrelDiameter) / 2, Rf = num(d.flangeDiameter) / 2;
     const all = result.compartments;
     const totalW = all.length ? all[all.length - 1].comp.acrossMax : 1;
@@ -1441,9 +1492,29 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     rect(v, -tFl, y0, totalW + tFl, Rb, '#c3d1df', STEEL_D); // barrel
     rect(v, -tFl, y0, 0, Rf, STEEL, STEEL_D);
     all.forEach(cr => rect(v, cr.comp.acrossMax, y0, cr.comp.acrossMax + tFl, Rf, STEEL, STEEL_D));
+    // drag handles: flange top → flange Ø, barrel surface → barrel Ø, flange body → width of the bay on its left
+    const flanges = [[-tFl, 0, null]].concat(all.map(cr => [cr.comp.acrossMax, cr.comp.acrossMax + tFl, cr.comp]));
+    flanges.forEach(([fa, fb, comp]) => {
+      const xl = v.X(fa) - 6, xr = v.X(fb) + 6, yt = v.Y(Rf);
+      addHandle({ cursor: 'ns-resize', label: 'Flange Ø',
+        test: (mx, my) => mx >= xl && mx <= xr && Math.abs(my - yt) <= 7,
+        start: (mx, my) => ({ off: Rf - v.invY(my) }),
+        move: (mx, my, st) => { d.flangeDiameter = r2(2 * Math.max(Rb + 0.05, v.invY(my) + st.off)); } });
+      if (comp) addHandle({ cursor: 'ew-resize', label: `${comp.name} width`,
+        test: (mx, my) => mx >= xl && mx <= xr && my > yt + 7 && my <= v.Y(y0),
+        start: (mx) => ({ off: comp.acrossMax - v.invX(mx) }),
+        move: (mx, my, st) => { d.bays[comp.index].width = r2(Math.max(0.05, v.invX(mx) + st.off - comp.acrossMin)); } });
+    });
+    all.forEach(cr => {
+      const xl = v.X(cr.comp.acrossMin), xr = v.X(cr.comp.acrossMax), yb = v.Y(Rb);
+      addHandle({ cursor: 'ns-resize', label: 'Barrel Ø',
+        test: (mx, my) => mx > xl + 6 && mx < xr - 6 && Math.abs(my - yb) <= 6,
+        start: (mx, my) => ({ off: Rb - v.invY(my) }),
+        move: (mx, my, st) => { d.barrelDiameter = r2(2 * Math.min(Rf - 0.05, Math.max(0.05, v.invY(my) + st.off))); } });
+    });
     crs.forEach((cr, k) => {
       const c = cr.comp;
-      if (!c.valid) return;
+      if (!c.valid) { invalidNote(v.X((c.acrossMin + c.acrossMax) / 2), v.Y((Rb + Rf) / 2), c.reason); return; }
       dashed(v, c.acrossMin, c.acrossMax, c.stackMax, LIMIT, '');
       drawTurns(v, cr, t => [t.across, t.stack]);
       if (ui.labels) { ctx.fillStyle = INK; ctx.font = '600 11.5px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(`${c.name} · ${cr.fill.layers} layers`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(Rf) - 4); }
@@ -1455,7 +1526,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     });
     const c0 = crs[0].comp, cN = crs[crs.length - 1].comp;
     chip(v.X(c0.acrossMin - tFl / 2), v.Y(Rf) - 22, `Ø flange ${fmt(Rf * 2, 2)} m`, 'carrier.drum.flangeDiameter', d.flangeDiameter, 'left');
-    chip(v.X(cN.acrossMax + tFl / 2), v.Y(Rf) - 22, `t ${fmt(tFl, 3)} m`, 'carrier.drum.flangeThickness', d.flangeThickness, 'right');
+    chip(v.X(cN.acrossMax + tFl / 2), v.Y(Rf) - 22, `t ${fmt(num(d.flangeThickness), 0)} mm`, 'carrier.drum.flangeThickness', d.flangeThickness, 'right');
     chip(v.X((c0.acrossMin + cN.acrossMax) / 2), v.Y(Rb) + (v.Y(y0) - v.Y(Rb)) * 0.75, `Ø barrel ${fmt(Rb * 2, 2)} m`, 'carrier.drum.barrelDiameter', d.barrelDiameter);
     sectionEndMarkers(v, crs, t => [t.across, t.stack]);
     hit.view = v; hit.mode = 'circles';
@@ -1466,7 +1537,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     const rings = ringsSorted();
     const crs = selectedComps();
     const outer = rings[rings.length - 1];
-    const Rmax = num(outer.diameter) / 2 + num(outer.thickness);
+    const Rmax = num(outer.diameter) / 2 + num(outer.thickness) / 1000;
     const world = { x0: -Rmax * 1.05, x1: Rmax * 1.05, y0: -Rmax * 1.05, y1: Rmax * 1.05 };
     const v = makeView(world, W, H, { l: 10, r: 10, t: 24, b: 10 });
     const cx = v.X(0), cy = v.Y(0);
@@ -1488,11 +1559,22 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
       });
     });
     rings.forEach(r => {
-      const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness), 0.02);
+      const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness) / 1000, 0.02);
       ctx.beginPath(); ctx.arc(cx, cy, (ri + ro) / 2 * v.s, 0, Math.PI * 2);
       ctx.lineWidth = Math.max(2, (ro - ri) * v.s); ctx.strokeStyle = STEEL_D; ctx.stroke();
     });
-    // diameters on a horizontal line through the centre
+    rings.forEach((r, k) => {
+      const ri = num(r.diameter) / 2, rm = (ri + ri + tOf(r)) / 2;
+      addHandle({ cursor: 'move', label: `${r.name} diameter`,
+        test: (mx, my) => Math.abs(Math.hypot(mx - cx, my - cy) - rm * v.s) <= 6,
+        start: (mx, my) => ({ off: ri - Math.hypot(mx - cx, my - cy) / v.s }),
+        move: (mx, my, st) => {
+          const lo = k > 0 ? num(rings[k - 1].diameter) / 2 + tOf(rings[k - 1]) + 0.05 : 0.05;
+          const hi = k < rings.length - 1 ? num(rings[k + 1].diameter) / 2 - tOf(r) - 0.05 : 1e6;
+          state.carrier.rings[r._i].diameter = r2(2 * Math.min(hi, Math.max(lo, Math.hypot(mx - cx, my - cy) / v.s + st.off)));
+        } });
+    });
+    // diameters
     rings.forEach((r, k) => {
       const ri = num(r.diameter) / 2;
       chip(cx + ri * v.s * Math.cos(Math.PI / 4 + k * 0.12), cy + ri * v.s * Math.sin(-Math.PI / 4 - k * 0.12), `Ø ${fmt(ri * 2, 2)} m`, `carrier.rings.${r._i}.diameter`, r.diameter);
@@ -1546,6 +1628,12 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     ctx.beginPath(); ctx.arc(cx, cy, Math.max(4, Rb * v.s * 0.12), 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke();
     ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = LIMIT; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.arc(cx, cy, cr.comp.stackMax * v.s, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    addHandle({ cursor: 'move', label: 'Flange Ø', test: (mx, my) => Math.abs(Math.hypot(mx - cx, my - cy) - Rf * v.s) <= 6,
+      start: (mx, my) => ({ off: Rf - Math.hypot(mx - cx, my - cy) / v.s }),
+      move: (mx, my, st) => { d.flangeDiameter = r2(2 * Math.max(Rb + 0.05, Math.hypot(mx - cx, my - cy) / v.s + st.off)); } });
+    addHandle({ cursor: 'move', label: 'Barrel Ø', test: (mx, my) => Math.abs(Math.hypot(mx - cx, my - cy) - Rb * v.s) <= 6,
+      start: (mx, my) => ({ off: Rb - Math.hypot(mx - cx, my - cy) / v.s }),
+      move: (mx, my, st) => { d.barrelDiameter = r2(2 * Math.min(Rf - 0.05, Math.max(0.05, Math.hypot(mx - cx, my - cy) / v.s + st.off))); } });
     chip(cx, cy - Rf * v.s - 0, `Ø flange ${fmt(Rf * 2, 2)} m`, 'carrier.drum.flangeDiameter', d.flangeDiameter);
     chip(cx, cy - Rb * v.s * 0.5, `Ø barrel ${fmt(Rb * 2, 2)} m`, 'carrier.drum.barrelDiameter', d.barrelDiameter);
     if (ui.labels) {
@@ -1553,6 +1641,17 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
       ctx.fillText(`${cr.comp.name}: one ring per layer, split by section share. Red dashed = freeboard limit.`, 10, 6);
     }
     hit.view = v; hit.mode = 'radial'; hit.center = [cx, cy];
+  }
+
+  function invalidNote(px, py, msg) {
+    ctx.save(); ctx.font = '600 11.5px ' + FONT;
+    const lines = ('Invalid geometry: ' + (msg || '')).match(/.{1,46}(\s|$)/g) || [msg];
+    const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 16, h = lines.length * 16 + 10;
+    const x = Math.max(4, Math.min(CW - w - 4, px - w / 2)), y = Math.max(4, py - h / 2);
+    ctx.fillStyle = '#fdecea'; ctx.strokeStyle = LIMIT; roundRect(x, y, w, h, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#b3261e'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    lines.forEach((l, i) => ctx.fillText(l.trim(), x + 8, y + 6 + i * 16));
+    ctx.restore();
   }
 
   function noData(msg) {
@@ -1574,7 +1673,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     ctx = mainCtx; CW = W; CH = H;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
-    hit = { mode: null, items: [], chips: [], view: null };
+    hit = { mode: null, items: [], chips: [], handles: [], view: null };
     drawView(W, H);
   }
 
@@ -1586,7 +1685,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     const saved = { ctx, CW, CH, hit, view: ui.view, zoom: ui.zoom, labels: ui.labels };
     ctx = c.getContext('2d'); ctx.setTransform(sc, 0, 0, sc, 0, 0);
     CW = W; CH = H; printing = true; ui.view = view; ui.zoom = zoom; ui.labels = true;
-    hit = { mode: null, items: [], chips: [], view: null };
+    hit = { mode: null, items: [], chips: [], handles: [], view: null };
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
     try { drawView(W, H); } finally {
       ctx = saved.ctx; CW = saved.CW; CH = saved.CH; hit = saved.hit; ui.view = saved.view; ui.zoom = saved.zoom; ui.labels = saved.labels; printing = false;
@@ -1611,10 +1710,44 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
   const wrap = $('canvasWrap');
   function chipAt(mx, my) { return hit.chips.slice().reverse().find(c => mx >= c.x && mx <= c.x + c.w && my >= c.y && my <= c.y + c.h); }
 
+  function handleAt(mx, my) { return hit.handles.find(h => h.test(mx, my)); }
+  let drag = null, dragMoved = false;
+  const posOf = e => { const rc = canvas.getBoundingClientRect(); return [e.clientX - rc.left, e.clientY - rc.top]; };
+  canvas.addEventListener('pointerdown', e => {
+    const [mx, my] = posOf(e);
+    if (chipAt(mx, my)) return;
+    const h = handleAt(mx, my);
+    if (!h) return;
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    drag = { h, st: h.start(mx, my) };
+    dragMoved = false;
+    frozen = hit.view ? hit.view.world : null;
+    tip.style.display = 'none';
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const [mx, my] = posOf(e);
+    drag.h.move(mx, my, drag.st);
+    dragMoved = true;
+    scheduleUpdate();
+  });
+  const endDrag = () => {
+    if (!drag) return;
+    drag = null; frozen = null;
+    update(); renderTab();
+    setTimeout(() => { dragMoved = false; }, 0);
+  };
+  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointercancel', endDrag);
+
   canvas.addEventListener('mousemove', e => {
+    if (drag) return;
     const rc = canvas.getBoundingClientRect();
     const mx = e.clientX - rc.left, my = e.clientY - rc.top;
     if (chipAt(mx, my)) { canvas.style.cursor = 'pointer'; tip.style.display = 'none'; return; }
+    const hd = handleAt(mx, my);
+    if (hd) { canvas.style.cursor = hd.cursor; tip.innerHTML = `Drag to change <b>${esc(hd.label)}</b>`; tip.style.display = 'block'; tip.style.left = Math.min(mx + 14, rc.width - 200) + 'px'; tip.style.top = (my + 14) + 'px'; return; }
     canvas.style.cursor = 'crosshair';
     let html = '';
     if (hit.mode === 'circles') {
@@ -1638,6 +1771,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
   canvas.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
 
   canvas.addEventListener('click', e => {
+    if (dragMoved) return;
     const rc = canvas.getBoundingClientRect();
     const c = chipAt(e.clientX - rc.left, e.clientY - rc.top);
     if (!c) return;
@@ -1650,7 +1784,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     if (old) old.remove();
     const box = document.createElement('div');
     box.className = 'dim-editor';
-    box.innerHTML = `<input type="number" step="any" min="0" value="${esc(c.value)}"><span>${c.path.endsWith('length') ? 'm' : 'm'}</span>`;
+    box.innerHTML = `<input type="text" inputmode="decimal" autocomplete="off" value="${esc(c.value)}"><span>${/thickness/i.test(c.path) ? 'mm' : 'm'}</span>`;
     const w = Math.max(c.w + 30, 120);
     box.style.left = Math.max(2, Math.min(wrap.clientWidth - w - 2, c.x + c.w / 2 - w / 2)) + 'px';
     box.style.top = Math.max(2, c.y - 4) + 'px';
@@ -1817,7 +1951,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
 
     const info = [['Client / project', i.client], ['Vessel / site', i.vessel], ['Carrier', `${typeLabel}${c.name ? ' — ' + c.name : ''}`],
       ['Max. cable load (SWL)', num(c.maxLoad) ? fmt(num(c.maxLoad), 1) + ' t' : '–'], ['Empty weight (tare)', num(c.tare) ? fmt(num(c.tare), 1) + ' t' : '–'],
-      ['Winding', `${w.stacking === 'nested' ? 'Nested' : 'Square'} stacking · turn gap ${fmt(num(w.turnGap), 0)} mm · layer gap ${fmt(num(w.layerGap), 0)} mm`]];
+      ['Coiling / winding', `${w.stacking === 'nested' ? 'Nested' : 'Square'} stacking · turn gap ${fmt(num(w.turnGapPct), 1)} % OD ${gapMm(w.turnGapPct)} · layer gap ${fmt(num(w.layerGapPct), 1)} % OD ${gapMm(w.layerGapPct)}`]];
 
     // sections table (compact, portrait)
     let sec = `<table class="rt"><thead><tr><th>#</th><th>Section / cable</th><th>${coil ? 'Comp.' : 'Bay'}</th><th class="r">Loaded</th><th class="r">Weight</th><th>Inner end (start)</th><th>Outer end (end)</th><th class="r">Off</th><th>Status</th></tr></thead><tbody>`;
@@ -1850,12 +1984,12 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
     let geo;
     if (coil) {
       geo = '<table class="rt"><thead><tr><th>Ring / cerce</th><th class="r">Inner Ø</th><th class="r">Wall thickness</th><th class="r">Height</th></tr></thead><tbody>' +
-        ringsSorted().map(r => `<tr><td>${esc(r.name)}</td><td class="r">${fmt(num(r.diameter), 2)} m</td><td class="r">${fmt(num(r.thickness), 3)} m</td><td class="r">${fmt(num(r.height), 2)} m</td></tr>`).join('') +
+        ringsSorted().map(r => `<tr><td>${esc(r.name)}</td><td class="r">${fmt(num(r.diameter), 2)} m</td><td class="r">${fmt(num(r.thickness), 0)} mm</td><td class="r">${fmt(num(r.height), 2)} m</td></tr>`).join('') +
         `<tr><td>Freeboard</td><td colspan="3" class="r">${fmt(num(c.freeboard), 2)} m</td></tr></tbody></table>`;
     } else {
       const d = c.drum;
       geo = `<table class="rt"><tbody><tr><td>Barrel Ø</td><td class="r">${fmt(num(d.barrelDiameter), 2)} m</td></tr><tr><td>Flange Ø</td><td class="r">${fmt(num(d.flangeDiameter), 2)} m</td></tr>
-        <tr><td>Flange thickness</td><td class="r">${fmt(num(d.flangeThickness), 3)} m</td></tr><tr><td>Freeboard</td><td class="r">${fmt(num(d.freeboard), 2)} m</td></tr>` +
+        <tr><td>Flange thickness</td><td class="r">${fmt(num(d.flangeThickness), 0)} mm</td></tr><tr><td>Freeboard</td><td class="r">${fmt(num(d.freeboard), 2)} m</td></tr>` +
         d.bays.map(b => `<tr><td>${esc(b.name)} — inner width</td><td class="r">${fmt(num(b.width), 2)} m</td></tr>`).join('') + '</tbody></table>';
     }
     const cabT = '<table class="rt"><thead><tr><th>Cable</th><th class="r">OD</th><th class="r">Weight</th><th class="r">MBR</th></tr></thead><tbody>' +
@@ -1893,7 +2027,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
       <div class="rp-cols"><div><h2 class="rp-h">3. Carrier geometry</h2>${geo}</div><div><h2 class="rp-h">4. Cables</h2>${cabT}</div></div>
       <h2 class="rp-h">5. Maximum capacity (each cable alone, empty carrier)</h2>${capT}
       <h2 class="rp-h">6. Assumptions and notes</h2>
-      <ul class="rp-notes"><li>Turn-by-turn simulation, layers alternate direction; ${w.stacking === 'nested' ? 'nested stacking (layer pitch 0.866 × OD)' : 'square stacking (layer pitch 1.0 × OD)'}, turn gap ${fmt(num(w.turnGap), 0)} mm, layer gap ${fmt(num(w.layerGap), 0)} mm.</li>
+      <ul class="rp-notes"><li>Turn-by-turn simulation, layers alternate direction; ${w.stacking === 'nested' ? 'nested stacking (layer pitch 0.866 × OD)' : 'square stacking (layer pitch 1.0 × OD)'}, turn gap ${fmt(num(w.turnGapPct), 1)} % of OD ${gapMm(w.turnGapPct)}, layer gap ${fmt(num(w.layerGapPct), 1)} % of OD ${gapMm(w.layerGapPct)}.</li>
         <li>Freeboard ${fmt(num(coil ? c.freeboard : c.drum.freeboard), 2)} m kept below the ${coil ? 'top of the walls' : 'flange rim'}. Working capacity taken as ≈ 80 % of the theoretical capacity.</li>
         <li>Planning aid only: check against the carrier drawings, the cable data sheets and the loading procedure.</li>${i.notes ? `<li>${esc(i.notes)}</li>` : ''}</ul>
       <table class="rp-sign"><tr><th></th><th>Name</th><th>Date</th><th>Signature</th></tr><tr><td>Prepared</td><td>${esc(i.preparedBy)}</td><td>${esc(i.date)}</td><td></td></tr><tr><td>Checked</td><td></td><td></td><td></td></tr><tr><td>Approved</td><td></td><td></td><td></td></tr></table>
@@ -1916,6 +2050,7 @@ table.data .dot { display: inline-block; width: 10px; height: 10px; border-radiu
   /* ================================================================== */
   /* Top bar actions                                                     */
   /* ================================================================== */
+  $('projectName').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
   $('projectName').addEventListener('input', e => { state.name = e.target.value; autosave(); });
   $('exampleSelect').addEventListener('change', e => {
     const k = e.target.value;

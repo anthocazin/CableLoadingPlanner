@@ -26,14 +26,14 @@ Three examples are built in (*Examples…* menu): export cable on a 5 000 t turn
 
 ## What you enter
 
-1. **Type** (all carrier dimensions in metres)
+1. **Type** (dimensions in metres, wall / flange thickness in mm — comma or dot accepted)
    - *Turntable* or *Static tank*: any number of **rings / cerces** from the core outwards — inner Ø, wall thickness, height. Each space between two rings is a **compartment**. Max. cable load (SWL) and empty weight.
    - *Cable drum*: barrel Ø, flange Ø, flange thickness, and one or several **bays** (intermediate flanges / joues). Empty drum weight → total drum weight (drum + cable).
    - **Freeboard** = clearance kept between the top of the cable and the top of the walls (tank / turntable) or the flange rim (drum). The cable is never loaded above *wall height − freeboard* / *flange radius − freeboard*.
-   - Dimensions and section lengths can also be **edited directly on the drawing** (click a value ✎).
+   - Dimensions and section lengths can also be **edited directly on the drawing** (click a value ✎), and walls, flanges and the barrel can be **dragged with the mouse** to resize them.
 2. **Cables** — library of cable types: OD (mm), weight (kg/m), minimum bend radius (m), optional crush limit (max. layers on top).
 3. **Loading plan** — the cable sections, in loading order: name, cable type, length, compartment / bay. The **Max** button sets a section to the largest length that still fits after the sections loaded before it.
-4. **Settings** — square or nested stacking, gap between turns and between layers, side where the first layer starts, report information. *Apply standard values* sets the usual planning basis: 0 mm between layers (layer pitch 1.0 × OD square / 0.866 × OD nested), 0 mm between turns on a drum, ≈ 5 % of OD between turns in a tank / on a turntable, working capacity ≈ 80 % of theoretical.
+4. **Settings** — square or nested stacking, gaps between turns and between layers **in % of the cable OD** (the equivalent in mm is shown), side where the first layer starts, report information. Standard values are applied by default: 0 % between layers (layer pitch 1.0 × OD square / 0.866 × OD nested), 5 % of OD between turns when coiling in a tank / on a turntable, 0 % on a drum; working capacity ≈ 80 % of theoretical.
 
 ## What you get
 

@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const CLP = require('../js/engine.js');
 
-const square = { stacking: 'square', turnGap: 0, layerGap: 0, startSide: 'inner' };
+const square = { stacking: 'square', turnGapPct: 0, layerGapPct: 0, startSide: 'inner' };
 const near = (a, b, tol = 1e-6) => assert.ok(Math.abs(a - b) <= tol, `${a} ≉ ${b}`);
 
 const drumProject = (sections, extra = {}) => ({
@@ -78,9 +78,9 @@ test('nested winding holds more than square winding', () => {
 
 test('multi-ring tank gives one compartment per pair of rings', () => {
   const carrier = { type: 'turntable', freeboard: 0.2, rings: [
-    { name: 'Core', diameter: 8, thickness: 0.02, height: 5 },
-    { name: 'Inner ring', diameter: 16, thickness: 0.02, height: 4 },
-    { name: 'Outer wall', diameter: 26, thickness: 0.02, height: 5 },
+    { name: 'Core', diameter: 8, thickness: 20, height: 5 },
+    { name: 'Inner ring', diameter: 16, thickness: 20, height: 4 },
+    { name: 'Outer wall', diameter: 26, thickness: 20, height: 5 },
   ] };
   const comps = CLP.compartments(carrier);
   assert.equal(comps.length, 2);
@@ -90,9 +90,16 @@ test('multi-ring tank gives one compartment per pair of rings', () => {
 });
 
 test('drum with intermediate flange: two bays', () => {
-  const carrier = { type: 'drum', drum: { barrelDiameter: 2, flangeDiameter: 4, flangeThickness: 0.05, freeboard: 0.1, bays: [{ width: 1 }, { width: 0.5 }] } };
+  const carrier = { type: 'drum', drum: { barrelDiameter: 2, flangeDiameter: 4, flangeThickness: 50, freeboard: 0.1, bays: [{ width: 1 }, { width: 0.5 }] } };
   const comps = CLP.compartments(carrier);
   assert.equal(comps.length, 2);
   near(comps[1].acrossMin, 1.05); near(comps[1].acrossMax, 1.55);
   near(comps[0].stackMax, 1.9);
+});
+
+test('turn gap in % of OD', () => {
+  const comp = CLP.compartments({ type: 'drum', drum: { barrelDiameter: 2, flangeDiameter: 4, flangeThickness: 0, freeboard: 0, bays: [{ width: 1.05 }] } })[0];
+  // pitch = 0.1 × 1.05 = 0.105 m → 10 turns in 1.05 m (last turn needs only 0.1 m)
+  const r = CLP.fillCompartment(comp, [{ length: 1e6, d: 0.1 }], { ...square, turnGapPct: 5 });
+  assert.equal(r.turnsPerLayer[1], 10);
 });
