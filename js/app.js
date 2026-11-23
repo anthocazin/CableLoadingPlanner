@@ -447,7 +447,8 @@
       k('Cable weight', `${fmt(t.weight, 1)} t${t.maxLoad ? ` / ${fmt(t.maxLoad, 0)}` : ''}`, loadCls);
     if (t.loadPct !== null) h += k('Load', `${fmt(t.loadPct * 100, 1)} %`, loadCls);
     if (num(state.carrier.tare) > 0) h += k(kind() === 'coil' ? 'Total (carrier + cable)' : 'Total drum weight', `${fmt(t.gross, 1)} t`);
-    h += k('Spare capacity', `${fmt(t.remaining / 1000, 2)} km`);
+    const sp = spare();
+    h += k(sp.byWeight ? 'Spare (by SWL)' : 'Spare capacity', `${fmt(sp.len / 1000, 2)} km`);
     if (t.vcg !== null) h += k('Cable VCG', `${fmt(t.vcg, 2)} m`);
     h += k('Status', t.status === 'ok' ? 'OK' : t.status === 'warn' ? 'Check' : 'NOT OK', t.status);
     $('kpis').innerHTML = h;
@@ -495,7 +496,7 @@
   const r2 = v => Math.round(v * 100) / 100;
   const tOf = r => Math.max(num(r.thickness) / 1000, 0);
   function addHandle(h) { if (!printing) hit.handles.push(h); }
-  const STEEL = '#a9bccf', STEEL_D = '#5a7391', INK = '#0b3a75', BLUE = '#1a6fd6', LIMIT = '#d64545';
+  const STEEL = '#1d2229', STEEL_D = '#000000', DIM = '#5a7391', BARREL = '#8f99a6', INK = '#0b3a75', BLUE = '#1a6fd6', LIMIT = '#d64545';
   const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif';
 
   function sectionColor(i) { const s = state.sections[i]; return (s && s.color) || PALETTE[i % PALETTE.length]; }
@@ -597,7 +598,7 @@
     ctx.closePath(); ctx.fill();
   }
   function dimLine(x1, y1, x2, y2, ext) {
-    ctx.save(); ctx.strokeStyle = STEEL_D; ctx.fillStyle = STEEL_D; ctx.lineWidth = 1;
+    ctx.save(); ctx.strokeStyle = DIM; ctx.fillStyle = DIM; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     const a = Math.atan2(y2 - y1, x2 - x1);
     arrow(x2, y2, a); arrow(x1, y1, a + Math.PI);
@@ -623,7 +624,8 @@
     });
   }
 
-  function drawMarkers(list) {
+  function drawMarkers(list, maxX) {
+    maxX = maxX || CW - 4;
     if (!ui.labels) return;
     ctx.save();
     ctx.font = '600 11px ' + FONT;
@@ -633,10 +635,15 @@
       ctx.lineWidth = 2.5; ctx.strokeStyle = INK; ctx.stroke();
       const editable = m.path && !printing;
       const tw = ctx.measureText(m.text).width + 12 + (editable ? 13 : 0);
-      let lx = m.px + 14, ly = m.py - 26;
-      if (lx + tw > CW - 4) lx = m.px - 14 - tw;
-      if (ly < 4) ly = m.py + 12;
-      for (let k = 0; k < 12 && placed.some(p => Math.abs(p.y - ly) < 19 && lx < p.x + p.w && lx + tw > p.x); k++) ly += 20;
+      let lx = m.px + 14;
+      if (lx + tw > maxX) lx = m.px - 14 - tw;
+      // first free slot above the point (more room there), then below
+      const hits = y => placed.some(p => Math.abs(p.y - y) < 20 && lx < p.x + p.w + 4 && lx + tw + 4 > p.x);
+      const cands = [];
+      for (let k = 0; k < 10; k++) cands.push(m.py - 26 - k * 22);
+      for (let k = 0; k < 4; k++) cands.push(m.py + 12 + k * 22);
+      let ly = cands.find(y => y > 4 && y < CH - 22 && !hits(y));
+      if (ly === undefined) ly = Math.max(4, m.py - 26);
       placed.push({ x: lx, y: ly, w: tw });
       ctx.strokeStyle = INK; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(m.px, m.py); ctx.lineTo(lx < m.px ? lx + tw : lx, ly + 9); ctx.stroke();
@@ -648,7 +655,7 @@
     ctx.restore();
   }
 
-  function sectionEndMarkers(v, crs, mapXY) {
+  function sectionEndMarkers(v, crs, mapXY, maxX) {
     const list = [];
     crs.forEach(cr => {
       cr.sectionIdx.forEach((si, j) => {
@@ -673,7 +680,7 @@
         }
       });
     });
-    drawMarkers(list);
+    drawMarkers(list, maxX);
   }
   function shortName(si) { const s = state.sections[si]; const n = (s && s.name) || 'S' + (si + 1); return n.length > 22 ? n.slice(0, 21) + '…' : n; }
 
@@ -700,7 +707,7 @@
     const spanX = x1 - x0;
     const padB = full ? 26 + rings.length * 26 : 40;
     const world = { x0: x0 - spanX * 0.03, x1: x1 + spanX * 0.03, y0: -hMax * 0.03, y1: hMax * 1.02 };
-    const v = makeView(world, W, H, { l: 46, r: 14, t: full ? 50 : 70, b: padB });
+    const v = makeView(world, W, H, { l: 46, r: 150, t: full ? 70 : 70, b: padB });
     drawAxes(v, 'Radius from centre (m)', 'Height above floor (m)', { noX: full, yMax: hMax });
     rect(v, world.x0, world.y0, world.x1, 0, '#dfe7f0');
     const sides = full ? [1, -1] : [1];
@@ -742,8 +749,9 @@
       if (ui.labels) {
         const wpx = (c.acrossMax - c.acrossMin) * v.s;
         ctx.fillStyle = INK; ctx.font = '600 11.5px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        ctx.fillText(wpx < 170 ? `C${c.index + 1} · ${fmt(cr.usedPct * 100, 0)} %` : `${c.label} · ${fmt(cr.usedPct * 100, 0)} % of height`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(c.stackMax) + 4);
-        if (cr.fill.turns.length && wpx > 150) { ctx.font = '10.5px ' + FONT; ctx.textBaseline = 'bottom'; ctx.fillText(`top of cable ${fmt(cr.fill.top, 2)} m`, v.X((c.acrossMin + c.acrossMax) / 2), v.Y(cr.fill.top) - 3); }
+        const lx = v.X((full ? -1 : 1) * (c.acrossMin + c.acrossMax) / 2); // annotations on the left half, cable data on the right half
+        ctx.fillText(wpx < 170 ? `C${c.index + 1} · ${fmt(cr.usedPct * 100, 0)} %` : `${c.label} · ${fmt(cr.usedPct * 100, 0)} % of height`, lx, v.Y(c.stackMax) + 4);
+        if (cr.fill.turns.length && wpx > 150) { ctx.font = '10.5px ' + FONT; ctx.textBaseline = 'bottom'; ctx.fillText(`top of cable ${fmt(cr.fill.top, 2)} m`, full ? lx : lx, v.Y(cr.fill.top) - 3); }
       }
       // freeboard dimension (first compartment shown; on the left half in the full view)
       if (k === 0) {
@@ -756,11 +764,12 @@
     // dimensions of the rings
     shown.forEach((r, k) => {
       const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness) / 1000, 0), h = num(r.height);
-      const pxR = v.X((ri + ro) / 2), top = v.Y(h);
-      chip(pxR, top - 12, `H ${fmt(h, 2)} m`, `carrier.rings.${r._i}.height`, r.height);
-      if (ui.labels) { ctx.fillStyle = STEEL_D; ctx.font = '600 10.5px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(r.name || '', full ? v.X(-(ri + ro) / 2) : pxR, full ? top - 24 : top - 24); }
+      const pxR = v.X((ri + ro) / 2), pxL = v.X(-(ri + ro) / 2), top = v.Y(h);
+      const pxA = full ? pxL : pxR; // annotation side
+      chip(pxA, top - 12, `H ${fmt(h, 2)} m`, `carrier.rings.${r._i}.height`, r.height);
+      if (ui.labels) { ctx.fillStyle = '#000'; ctx.font = '700 10.5px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText(r.name || '', pxA, full ? top - 50 : top - 24); }
       if (full) {
-        chip(v.X(-(ri + ro) / 2), top - 12, `t ${fmt(num(r.thickness), 0)} mm`, `carrier.rings.${r._i}.thickness`, r.thickness);
+        chip(pxL, top - 32, `t ${fmt(num(r.thickness), 0)} mm`, `carrier.rings.${r._i}.thickness`, r.thickness);
         const py = v.Y(world.y0) + 16 + k * 26;
         dimLine(v.X(-ri), py, v.X(ri), py, [v.Y(0), v.Y(0)]);
         chip(v.X(0), py, `Ø ${fmt(num(r.diameter), 2)} m  ${r.name || ''}`, `carrier.rings.${r._i}.diameter`, r.diameter);
@@ -769,8 +778,41 @@
         chip(pxR, top - 62, `t ${fmt(num(r.thickness), 0)} mm`, `carrier.rings.${r._i}.thickness`, r.thickness);
       }
     });
-    sectionEndMarkers(v, crs, t => [t.across, t.stack]);
+    sectionEndMarkers(v, crs, t => [t.across, t.stack], v.X(Rout));
+    sectionTops(v, crs, v.X(Rout + spanX * 0.03) + 6, top => `H ${fmt(top, 2)} m`, v.Y(world.y0) - 10);
     hit.view = v; hit.mode = 'circles';
+  }
+
+  /* top of each section: dashed line in its colour + label in the right margin */
+  function sectionTops(v, crs, xLabel, fmtTop, yMax) {
+    if (!ui.labels) return;
+    const list = [];
+    crs.forEach(cr => cr.sectionIdx.forEach(si => {
+      const sr = result.sections[si];
+      if (!sr || !(sr.placed > 0) || sr.top === null) return;
+      list.push({ si, y: v.Y(sr.top), x0: v.X(cr.comp.acrossMin), top: sr.top, layer: sr.topLayer });
+    }));
+    list.sort((a, b) => a.y - b.y);
+    let last = -1e9;
+    list.forEach(it => { it.ly = Math.max(it.y, last + 21); last = it.ly; });
+    // keep the labels above the floor: shift the whole stack up if needed
+    const over = list.length ? list[list.length - 1].ly - (yMax || CH - 12) : 0;
+    if (over > 0) list.forEach(it => { it.ly -= over; });
+    ctx.save();
+    list.forEach(it => {
+      const col = sectionColor(it.si);
+      ctx.setLineDash([5, 3]); ctx.strokeStyle = col; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(it.x0, it.y); ctx.lineTo(xLabel - 4, it.y); ctx.lineTo(xLabel, it.ly); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = '600 11px ' + FONT;
+      const txt = `${shortName(it.si)} top · ${fmtTop(it.top)}`;
+      const w = ctx.measureText(txt).width + 14;
+      ctx.fillStyle = '#fff'; roundRect(xLabel, it.ly - 9, w, 18, 4); ctx.fill();
+      ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = col; ctx.fillRect(xLabel + 4, it.ly - 5, 3, 10);
+      ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, xLabel + 10, it.ly + 0.5);
+    });
+    ctx.restore();
   }
 
   /* ---- drum: section along the axis ---- */
@@ -787,9 +829,9 @@
     const depth = Math.max(Rf - Rb, 0.1);
     const y0 = Math.max(0, Rb - depth * 0.3);
     const world = { x0: x0 - (x1 - x0) * 0.03, x1: x1 + (x1 - x0) * 0.03, y0, y1: Rf };
-    const v = makeView(world, W, H, { l: 46, r: 14, t: 34, b: 36 });
+    const v = makeView(world, W, H, { l: 46, r: 175, t: 34, b: 36 });
     drawAxes(v, 'Axial position from inner face of the first flange (m)', 'Radius from drum axis (m)');
-    rect(v, -tFl, y0, totalW + tFl, Rb, '#c3d1df', STEEL_D); // barrel
+    rect(v, -tFl, y0, totalW + tFl, Rb, BARREL, STEEL_D); // barrel
     rect(v, -tFl, y0, 0, Rf, STEEL, STEEL_D);
     all.forEach(cr => rect(v, cr.comp.acrossMax, y0, cr.comp.acrossMax + tFl, Rf, STEEL, STEEL_D));
     // drag handles: flange top → flange Ø, barrel surface → barrel Ø, flange body → width of the bay on its left
@@ -828,7 +870,8 @@
     chip(v.X(c0.acrossMin - tFl / 2), v.Y(Rf) - 22, `Ø flange ${fmt(Rf * 2, 2)} m`, 'carrier.drum.flangeDiameter', d.flangeDiameter, 'left');
     chip(v.X(cN.acrossMax + tFl / 2), v.Y(Rf) - 22, `t ${fmt(num(d.flangeThickness), 0)} mm`, 'carrier.drum.flangeThickness', d.flangeThickness, 'right');
     chip(v.X((c0.acrossMin + cN.acrossMax) / 2), v.Y(Rb) + (v.Y(y0) - v.Y(Rb)) * 0.75, `Ø barrel ${fmt(Rb * 2, 2)} m`, 'carrier.drum.barrelDiameter', d.barrelDiameter);
-    sectionEndMarkers(v, crs, t => [t.across, t.stack]);
+    sectionEndMarkers(v, crs, t => [t.across, t.stack], v.X(x1));
+    sectionTops(v, crs, v.X(x1 + (x1 - x0) * 0.03) + 8, top => `R ${fmt(top, 2)} m`, v.Y(y0) - 10);
     hit.view = v; hit.mode = 'circles';
   }
 
@@ -851,7 +894,6 @@
         ctx.lineWidth = Math.max(1, t.d * v.s * 0.92);
         t.segs.forEach(sg => {
           ctx.strokeStyle = sectionColor(cr.sectionIdx[sg.item]);
-          ctx.globalAlpha = t.layer === nL ? 1 : 0.5;
           ctx.beginPath(); ctx.arc(cx, cy, rr, -Math.PI / 2 + sg.from * 2 * Math.PI, -Math.PI / 2 + sg.to * 2 * Math.PI); ctx.stroke();
         });
         ctx.globalAlpha = 1;
@@ -861,7 +903,7 @@
     rings.forEach(r => {
       const ri = num(r.diameter) / 2, ro = ri + Math.max(num(r.thickness) / 1000, 0.02);
       ctx.beginPath(); ctx.arc(cx, cy, (ri + ro) / 2 * v.s, 0, Math.PI * 2);
-      ctx.lineWidth = Math.max(2, (ro - ri) * v.s); ctx.strokeStyle = STEEL_D; ctx.stroke();
+      ctx.lineWidth = Math.max(3, (ro - ri) * v.s); ctx.strokeStyle = '#000'; ctx.stroke();
     });
     rings.forEach((r, k) => {
       const ri = num(r.diameter) / 2, rm = (ri + ri + tOf(r)) / 2;
@@ -901,9 +943,11 @@
     if (!cr) return noData('No bay');
     const Rb = num(d.barrelDiameter) / 2, Rf = num(d.flangeDiameter) / 2;
     const world = { x0: -Rf * 1.06, x1: Rf * 1.06, y0: -Rf * 1.06, y1: Rf * 1.06 };
-    const v = makeView(world, W, H, { l: 10, r: 10, t: 24, b: 10 });
+    const v = makeView(world, W, H, { l: 10, r: 290, t: 24, b: 10 });
     const cx = v.X(0), cy = v.Y(0);
     ctx.beginPath(); ctx.arc(cx, cy, Rf * v.s, 0, Math.PI * 2); ctx.fillStyle = '#e6edf5'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = STEEL_D; ctx.stroke();
+    // ground line (drum standing on its flanges)
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - Rf * v.s * 1.05, cy + Rf * v.s); ctx.lineTo(cx + Rf * v.s * 1.05, cy + Rf * v.s); ctx.stroke();
     const byLayer = {};
     cr.fill.turns.forEach(t => { (byLayer[t.layer] = byLayer[t.layer] || []).push(t); });
     Object.keys(byLayer).map(Number).sort((a, b) => a - b).forEach(L => {
@@ -924,7 +968,7 @@
       });
       hit.items.push({ r0: r - dd / 2, r1: r + dd / 2, cr, layer: L, ts, share, tot, capL });
     });
-    ctx.beginPath(); ctx.arc(cx, cy, Rb * v.s, 0, Math.PI * 2); ctx.fillStyle = '#c3d1df'; ctx.fill(); ctx.strokeStyle = STEEL_D; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, Rb * v.s, 0, Math.PI * 2); ctx.fillStyle = BARREL; ctx.fill(); ctx.strokeStyle = STEEL_D; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.beginPath(); ctx.arc(cx, cy, Math.max(4, Rb * v.s * 0.12), 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke();
     ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = LIMIT; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.arc(cx, cy, cr.comp.stackMax * v.s, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
@@ -936,9 +980,28 @@
       move: (mx, my, st) => { d.barrelDiameter = r2(2 * Math.min(Rf - 0.05, Math.max(0.05, Math.hypot(mx - cx, my - cy) / v.s + st.off))); } });
     chip(cx, cy - Rf * v.s - 0, `Ø flange ${fmt(Rf * 2, 2)} m`, 'carrier.drum.flangeDiameter', d.flangeDiameter);
     chip(cx, cy - Rb * v.s * 0.5, `Ø barrel ${fmt(Rb * 2, 2)} m`, 'carrier.drum.barrelDiameter', d.barrelDiameter);
+    // top of each section: dashed circle + label (R from axis, H above ground with the drum on its flanges)
     if (ui.labels) {
+      const tops = cr.sectionIdx.map(si => ({ si, sr: result.sections[si] })).filter(o => o.sr && o.sr.placed > 0 && o.sr.top !== null)
+        .sort((a, b) => b.sr.top - a.sr.top);
+      const lx = cx + Rf * v.s + 24;
+      let ly = cy - (tops.length - 1) * 11;
+      tops.forEach(o => {
+        const col = sectionColor(o.si), rr = o.sr.top * v.s;
+        ctx.save(); ctx.setLineDash([5, 3]); ctx.strokeStyle = col; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx + rr, cy); ctx.lineTo(lx - 6, ly); ctx.stroke(); ctx.restore();
+        ctx.beginPath(); ctx.arc(cx + rr, cy, 3.5, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill();
+        ctx.font = '600 11px ' + FONT;
+        const txt = `${shortName(o.si)} top · R ${fmt(o.sr.top, 2)} m · H ${fmt(Rf + o.sr.top, 2)} m`;
+        const w = ctx.measureText(txt).width + 14;
+        ctx.fillStyle = '#fff'; roundRect(lx, ly - 9, w, 18, 4); ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = col; ctx.fillRect(lx + 4, ly - 5, 3, 10);
+        ctx.fillStyle = INK; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 10, ly + 0.5);
+        ly += 22;
+      });
       ctx.fillStyle = '#5a7391'; ctx.font = '11px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillText(`${cr.comp.name}: one ring per layer, split by section share. Red dashed = freeboard limit.`, 10, 6);
+      ctx.fillText(`${cr.comp.name}: one ring per layer. R = radius from the drum axis, H = height above ground (drum standing on its flanges). Red dashed = freeboard limit.`, 10, 6);
     }
     hit.view = v; hit.mode = 'radial'; hit.center = [cx, cy];
   }
@@ -1135,7 +1198,8 @@
   /* ---------------- legend & gauges ---------------- */
   function renderLegend() {
     let h = state.sections.map((s, i) => `<span><i style="background:${esc(sectionColor(i))}"></i>${esc(s.name)}</span>`).join('');
-    h += `<span><i style="background:${STEEL}"></i>${kind() === 'coil' ? 'Rings / walls' : 'Barrel & flanges'}</span>`;
+    h += kind() === 'coil' ? `<span><i style="background:${STEEL}"></i>Rings / walls</span>` : `<span><i style="background:${STEEL}"></i>Flanges</span><span><i style="background:${BARREL}"></i>Barrel</span>`;
+    h += '<span><i style="background:repeating-linear-gradient(90deg,#1565c0 0 4px,transparent 4px 7px);height:3px"></i>Top of each section</span>';
     h += '<span><i style="background:repeating-linear-gradient(90deg,#c0392b 0 4px,transparent 4px 7px);height:3px"></i>Max. stack / freeboard limit</span>';
     h += '<span><i style="background:#999;opacity:.45"></i>Partly used turn</span>';
     $('legend').innerHTML = h;
@@ -1172,9 +1236,17 @@
     return `<span class="pos">${h}</span>`;
   }
 
+  /* height of the top of a section: above the floor (tank / turntable) or radius + height above ground (drum on its flanges) */
+  function topText(sr) {
+    if (!sr || sr.top === null || sr.top === undefined || !(sr.placed > 0)) return '–';
+    if (kind() === 'coil') return `H ${fmt(sr.top, 2)} m<br><span class="muted mut">layer ${sr.topLayer}</span>`;
+    const Rf = num(state.carrier.drum.flangeDiameter) / 2;
+    return `R ${fmt(sr.top, 2)} m<br><span class="muted mut">H ${fmt(Rf + sr.top, 2)} m above ground</span>`;
+  }
+
   function renderSectionsTable() {
     if (!state.sections.length) { $('sectionsTable').innerHTML = '<p class="muted">No section in the loading plan.</p>'; return; }
-    let h = `<table class="data"><thead><tr><th>#</th><th>Section</th><th>Cable</th><th>${kind() === 'coil' ? 'Compartment' : 'Bay'}</th><th class="r">Length (m)</th><th class="r">Loaded (m)</th><th class="r">Weight (t)</th><th>Inner end (start of loading)</th><th>Outer end (end of loading)</th><th class="r">Off-load</th><th>Status</th></tr></thead><tbody>`;
+    let h = `<table class="data"><thead><tr><th>#</th><th>Section</th><th>Cable</th><th>${kind() === 'coil' ? 'Compartment' : 'Bay'}</th><th class="r">Length (m)</th><th class="r">Loaded (m)</th><th class="r">Weight (t)</th><th class="r">Top of section</th><th>Inner end (start of loading)</th><th>Outer end (end of loading)</th><th class="r">Off-load</th><th>Status</th></tr></thead><tbody>`;
     result.sections.forEach((sr, i) => {
       const s = state.sections[i];
       const cr = result.compartments[sr.compIndex];
@@ -1186,7 +1258,7 @@
       else if (cab && num(cab.maxLayers) > 0 && cr.fill.layers - sr.minLayer > num(cab.maxLayers)) status = '<span class="badge fail">Crush</span>';
       const offOrder = cr ? cr.sectionIdx.length - cr.sectionIdx.indexOf(i) : '';
       h += `<tr><td>${i + 1}</td><td class="sec"><span class="dot" style="background:${esc(sectionColor(i))}"></span><b>${esc(s.name)}</b></td><td class="cab">${esc(cab ? cab.name : '–')}<br><span class="muted">${cab ? `Ø ${fmt(num(cab.od), 0)} mm · ${fmt(num(cab.weight), 1)} kg/m` : ''}</span></td>
-        <td>${cr ? esc(cr.comp.label) : '–'}</td><td class="r">${fmt(num(s.length), 0)}</td><td class="r">${fmt(sr.placed, 0)}</td><td class="r">${fmt(sr.weight, 1)}</td>
+        <td>${cr ? esc(cr.comp.label) : '–'}</td><td class="r">${fmt(num(s.length), 0)}</td><td class="r">${fmt(sr.placed, 0)}</td><td class="r">${fmt(sr.weight, 1)}</td><td class="r">${topText(sr)}</td>
         <td class="posc">${cr ? posText(cr, sr.first, false) : '–'}</td><td class="posc">${cr ? posText(cr, sr.last, true) : '–'}</td><td class="r">${offOrder ? '#' + offOrder : ''}</td><td>${status}</td></tr>`;
     });
     h += '</tbody></table>';
@@ -1210,17 +1282,35 @@
     $('compTable').innerHTML = h;
   }
 
+  /* capacity of each cable alone: by volume, by weight (SWL), and the smaller of the two */
+  function capRows() {
+    const maxLoad = num(state.carrier.maxLoad);
+    return capMatrix.map(row => {
+      const vol = row.caps.reduce((a, b) => a + b, 0);
+      const w = num(row.cable.weight);
+      const bySwl = maxLoad > 0 && w > 0 ? maxLoad * 1000 / w : Infinity;
+      const max = Math.min(vol, bySwl);
+      return { row, vol, bySwl, max, working: Math.min(vol * 0.8, bySwl), byWeight: bySwl < vol, weightAtMax: max * w / 1000 };
+    });
+  }
+  /* spare length still loadable: smaller of the room left (volume) and the SWL left (weight) */
+  function spare() {
+    const t = result.totals, maxLoad = num(state.carrier.maxLoad);
+    const crs = result.compartments.filter(cr => cr.refCable);
+    const ref = (crs.find(cr => cr.sectionIdx.length) || crs[0] || {}).refCable;
+    const w = ref ? num(ref.weight) : 0;
+    const byW = maxLoad > 0 && w > 0 ? Math.max(0, (maxLoad - t.weight) * 1000 / w) : Infinity;
+    return { len: Math.min(t.remaining, byW), byWeight: byW < t.remaining };
+  }
+
   function renderCapTable() {
     const maxLoad = num(state.carrier.maxLoad);
-    let h = `<table class="data"><thead><tr><th>Cable</th>${result.compartments.map(cr => `<th class="r">${esc(cr.comp.label)}</th>`).join('')}<th class="r">Total (volume)</th><th class="r">Working (80 %)</th><th class="r">Weight at total</th>${maxLoad ? '<th class="r">Limit by SWL</th><th class="r">Max. loadable</th>' : ''}</tr></thead><tbody>`;
-    capMatrix.forEach(row => {
-      const tot = row.caps.reduce((a, b) => a + b, 0);
-      const w = tot * num(row.cable.weight) / 1000;
-      const bySwl = num(row.cable.weight) > 0 ? maxLoad * 1000 / num(row.cable.weight) : Infinity;
-      h += `<tr><td><b>${esc(row.cable.name)}</b><br><span class="muted">Ø ${fmt(num(row.cable.od), 0)} mm · ${fmt(num(row.cable.weight), 1)} kg/m</span></td>${row.caps.map(c => `<td class="r">${fmt(c, 0)} m</td>`).join('')}
-        <td class="r"><b>${fmt(tot, 0)} m</b></td><td class="r">${fmt(tot * 0.8, 0)} m</td><td class="r">${fmt(w, 1)} t</td>${maxLoad ? `<td class="r">${fmt(bySwl, 0)} m</td><td class="r"><b>${fmt(Math.min(tot, bySwl), 0)} m</b><br><span class="muted">${bySwl < tot ? 'limited by weight' : 'limited by volume'}</span></td>` : ''}</tr>`;
+    let h = `<table class="data"><thead><tr><th>Cable</th>${result.compartments.map(cr => `<th class="r">${esc(cr.comp.label)}</th>`).join('')}<th class="r">By volume</th>${maxLoad ? '<th class="r">By weight (SWL)</th>' : ''}<th class="r">Max. loadable</th><th class="r">Weight</th><th class="r">Working (80 %)</th></tr></thead><tbody>`;
+    capRows().forEach(c => {
+      h += `<tr><td><b>${esc(c.row.cable.name)}</b><br><span class="muted">Ø ${fmt(num(c.row.cable.od), 0)} mm · ${fmt(num(c.row.cable.weight), 1)} kg/m</span></td>${c.row.caps.map(v => `<td class="r">${fmt(v, 0)} m</td>`).join('')}
+        <td class="r">${fmt(c.vol, 0)} m</td>${maxLoad ? `<td class="r">${fmt(c.bySwl, 0)} m</td>` : ''}<td class="r"><b>${fmt(c.max, 0)} m</b><br><span class="muted">limited by ${c.byWeight ? 'weight' : 'volume'}</span></td><td class="r">${fmt(c.weightAtMax, 1)} t</td><td class="r">${fmt(c.working, 0)} m</td></tr>`;
     });
-    h += '</tbody></table>';
+    h += '</tbody></table><p class="muted" style="font-size:11.5px;margin:6px 0 0">Max. loadable = the smaller of the volume capacity and the length allowed by the SWL. Working = 80 % of the volume capacity, never more than the SWL allows.</p>';
     $('capTable').innerHTML = h;
   }
 
@@ -1247,7 +1337,8 @@
     let kpis = kpi('Cable loaded', `${fmt(t.length, 0)} m`) + kpi('Cable weight', `${fmt(t.weight, 1)} t`);
     if (num(c.tare) > 0) kpis += kpi(coil ? 'Total weight (carrier + cable)' : 'Total drum weight (drum + cable)', `${fmt(t.gross, 1)} t`, 'strong');
     if (t.loadPct !== null) kpis += kpi('Load vs SWL', `${fmt(t.loadPct * 100, 1)} %`, t.loadPct > 1 ? 'bad' : '');
-    kpis += kpi('Spare capacity', `${fmt(t.remaining, 0)} m`);
+    const sp = spare();
+    kpis += kpi(sp.byWeight ? 'Spare capacity (by SWL)' : 'Spare capacity', `${fmt(sp.len, 0)} m`);
     if (t.vcg !== null) kpis += kpi('Cable VCG', `${fmt(t.vcg, 2)} m`);
 
     const info = [['Client / project', i.client], ['Vessel / site', i.vessel], ['Carrier', `${typeLabel}${c.name ? ' — ' + c.name : ''}`],
@@ -1255,7 +1346,7 @@
       ['Coiling / winding', `${w.stacking === 'nested' ? 'Nested' : 'Square'} stacking · turn gap ${fmt(num(w.turnGapPct), 1)} % OD ${gapMm(w.turnGapPct)} · layer gap ${fmt(num(w.layerGapPct), 1)} % OD ${gapMm(w.layerGapPct)}`]];
 
     // sections table (compact, portrait)
-    let sec = `<table class="rt"><thead><tr><th>#</th><th>Section / cable</th><th>${coil ? 'Comp.' : 'Bay'}</th><th class="r">Loaded</th><th class="r">Weight</th><th>Inner end (start)</th><th>Outer end (end)</th><th class="r">Off</th><th>Status</th></tr></thead><tbody>`;
+    let sec = `<table class="rt"><thead><tr><th>#</th><th>Section / cable</th><th>${coil ? 'Comp.' : 'Bay'}</th><th class="r">Loaded</th><th class="r">Weight</th><th class="r">Top</th><th>Inner end (start)</th><th>Outer end (end)</th><th class="r">Off</th><th>Status</th></tr></thead><tbody>`;
     result.sections.forEach((sr, k) => {
       const s = state.sections[k], cr = result.compartments[sr.compIndex], cab = sr.cable;
       let st = '<span class="rb ok">OK</span>';
@@ -1264,7 +1355,7 @@
       else if (cab && num(cab.mbr) > 0 && sr.minRadius < num(cab.mbr)) st = '<span class="rb bad">MBR</span>';
       const off = cr ? cr.sectionIdx.length - cr.sectionIdx.indexOf(k) : '';
       sec += `<tr><td>${k + 1}</td><td><span class="sw" style="background:${esc(sectionColor(k))}"></span><b>${esc(s.name)}</b><br><span class="mut">${esc(cab ? cab.name : '–')}${cab ? ` · Ø ${fmt(num(cab.od), 0)} mm` : ''}</span></td>
-        <td>${cr ? esc(cr.comp.label.replace('Compartment ', 'C')) : '–'}</td><td class="r">${fmt(sr.placed, 0)} m${sr.requested && Math.abs(sr.requested - sr.placed) > 0.5 ? `<br><span class="mut">of ${fmt(sr.requested, 0)}</span>` : ''}</td><td class="r">${fmt(sr.weight, 1)} t</td>
+        <td>${cr ? esc(cr.comp.label.replace('Compartment ', 'C')) : '–'}</td><td class="r">${fmt(sr.placed, 0)} m${sr.requested && Math.abs(sr.requested - sr.placed) > 0.5 ? `<br><span class="mut">of ${fmt(sr.requested, 0)}</span>` : ''}</td><td class="r">${fmt(sr.weight, 1)} t</td><td class="r">${topText(sr)}</td>
         <td>${cr ? posText(cr, sr.first, false) : '–'}</td><td>${cr ? posText(cr, sr.last, true) : '–'}</td><td class="r">${off ? '#' + off : ''}</td><td>${st}</td></tr>`;
     });
     sec += '</tbody></table>';
@@ -1296,12 +1387,9 @@
     const cabT = '<table class="rt"><thead><tr><th>Cable</th><th class="r">OD</th><th class="r">Weight</th><th class="r">MBR</th></tr></thead><tbody>' +
       state.cables.map(cb => `<tr><td>${esc(cb.name)}</td><td class="r">${fmt(num(cb.od), 0)} mm</td><td class="r">${fmt(num(cb.weight), 1)} kg/m</td><td class="r">${fmt(num(cb.mbr), 2)} m</td></tr>`).join('') + '</tbody></table>';
 
-    const capT = `<table class="rt"><thead><tr><th>Cable</th>${result.compartments.map(cr => `<th class="r">${esc(cr.comp.label.replace('Compartment ', 'C'))}</th>`).join('')}<th class="r">Total</th><th class="r">Working 80 %</th>${num(c.maxLoad) ? '<th class="r">Max. by SWL</th>' : ''}</tr></thead><tbody>` +
-      capMatrix.map(row => {
-        const tot = row.caps.reduce((a, b) => a + b, 0);
-        const bySwl = num(row.cable.weight) > 0 ? num(c.maxLoad) * 1000 / num(row.cable.weight) : Infinity;
-        return `<tr><td>${esc(row.cable.name)}</td>${row.caps.map(v => `<td class="r">${fmt(v, 0)} m</td>`).join('')}<td class="r"><b>${fmt(tot, 0)} m</b></td><td class="r">${fmt(tot * 0.8, 0)} m</td>${num(c.maxLoad) ? `<td class="r">${fmt(bySwl, 0)} m</td>` : ''}</tr>`;
-      }).join('') + '</tbody></table>';
+    const capT = `<table class="rt"><thead><tr><th>Cable</th>${result.compartments.map(cr => `<th class="r">${esc(cr.comp.label.replace('Compartment ', 'C'))}</th>`).join('')}<th class="r">By volume</th>${num(c.maxLoad) ? '<th class="r">By weight (SWL)</th>' : ''}<th class="r">Max. loadable</th><th class="r">Working 80 %</th></tr></thead><tbody>` +
+      capRows().map(cp => `<tr><td>${esc(cp.row.cable.name)}</td>${cp.row.caps.map(v => `<td class="r">${fmt(v, 0)} m</td>`).join('')}<td class="r">${fmt(cp.vol, 0)} m</td>${num(c.maxLoad) ? `<td class="r">${fmt(cp.bySwl, 0)} m</td>` : ''}<td class="r"><b>${fmt(cp.max, 0)} m</b><br><span class="mut">by ${cp.byWeight ? 'weight' : 'volume'}</span></td><td class="r">${fmt(cp.working, 0)} m</td></tr>`).join('') +
+      '</tbody></table><p class="mut small">Max. loadable = the smaller of the volume capacity and the length allowed by the SWL.</p>';
 
     const legend = state.sections.map((s, k) => `<span><i style="background:${esc(sectionColor(k))}"></i>${esc(s.name)}</span>`).join('');
 
@@ -1311,10 +1399,7 @@
         <div class="rp-title"><div class="rp-kicker">Cable loading plan</div><h1>${esc(state.name || 'Untitled project')}</h1></div>
         <table class="rp-meta"><tr><td>Reference</td><td>${esc(i.reference || '–')}</td></tr><tr><td>Date</td><td>${esc(i.date || '–')}</td></tr><tr><td>Prepared by</td><td>${esc(i.preparedBy || '–')}</td></tr></table>
       </header>
-      <section class="rp-row">
-        <table class="rp-info">${info.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1] || '–')}</td></tr>`).join('')}</table>
-        <div class="rp-status ${t.status}"><div class="rp-status-t">${statusTxt}</div>${checks.map(ch => `<div class="ln ${ch.level}">${esc(ch.text)}</div>`).join('')}</div>
-      </section>
+      <table class="rp-info rp-info-full">${info.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1] || '–')}</td></tr>`).join('')}</table>
       <section class="rp-kpis">${kpis}</section>
       <figure class="rp-fig"><img src="${img1}" alt=""><figcaption>Figure 1 — ${coil ? 'Cross-section through the centre (full diameter)' : 'Cross-section along the drum axis'}. Red dashed line = freeboard limit.</figcaption></figure>
       <div class="rp-legend">${legend}</div>
@@ -1331,6 +1416,8 @@
       <ul class="rp-notes"><li>Turn-by-turn simulation, layers alternate direction; ${w.stacking === 'nested' ? 'nested stacking (layer pitch 0.866 × OD)' : 'square stacking (layer pitch 1.0 × OD)'}, turn gap ${fmt(num(w.turnGapPct), 1)} % of OD ${gapMm(w.turnGapPct)}, layer gap ${fmt(num(w.layerGapPct), 1)} % of OD ${gapMm(w.layerGapPct)}.</li>
         <li>Freeboard ${fmt(num(coil ? c.freeboard : c.drum.freeboard), 2)} m kept below the ${coil ? 'top of the walls' : 'flange rim'}. Working capacity taken as ≈ 80 % of the theoretical capacity.</li>
         <li>Planning aid only: check against the carrier drawings, the cable data sheets and the loading procedure.</li>${i.notes ? `<li>${esc(i.notes)}</li>` : ''}</ul>
+      <h2 class="rp-h">7. Conclusion</h2>
+      <div class="rp-status ${t.status}"><div class="rp-status-t">${statusTxt}</div>${checks.map(ch => `<div class="ln ${ch.level}">${esc(ch.text)}</div>`).join('')}</div>
       <table class="rp-sign"><tr><th></th><th>Name</th><th>Date</th><th>Signature</th></tr><tr><td>Prepared</td><td>${esc(i.preparedBy)}</td><td>${esc(i.date)}</td><td></td></tr><tr><td>Checked</td><td></td><td></td><td></td></tr><tr><td>Approved</td><td></td><td></td><td></td></tr></table>
     </div>`;
   }

@@ -156,7 +156,7 @@
     opts = opts || {};
     const placer = makePlacer(comp, winding);
     const turns = [];
-    const res = items.map(() => ({ placed: 0, overflow: 0, first: null, last: null, minRadius: Infinity, minLayer: Infinity, maxLayer: 0, momentStack: 0 }));
+    const res = items.map(() => ({ placed: 0, overflow: 0, first: null, last: null, minRadius: Infinity, minLayer: Infinity, maxLayer: 0, momentStack: 0, top: null, topLayer: 0 }));
     let open = null; // turn partially used
     let full = !comp.valid;
 
@@ -187,6 +187,8 @@
         r.minRadius = Math.min(r.minRadius, open.radius);
         r.minLayer = Math.min(r.minLayer, open.layer);
         r.maxLayer = Math.max(r.maxLayer, open.layer);
+        // top of the section: highest point of its cable (height above floor in a tank, radius on a drum)
+        if (r.top === null || open.stack + open.d / 2 > r.top) { r.top = open.stack + open.d / 2; r.topLayer = open.layer; }
         if (open.used >= open.circ - 1e-7) open = null;
       }
     });
